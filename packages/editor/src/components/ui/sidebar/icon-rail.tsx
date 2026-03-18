@@ -1,7 +1,7 @@
 'use client'
 
 import { useViewer } from '@pascal-app/viewer'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, PanelLeftClose, PanelLeftOpen, Sun } from 'lucide-react'
 import { motion } from 'motion/react'
 import { type ReactNode, useEffect, useState } from 'react'
 import {
@@ -9,9 +9,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from './../../../components/ui/primitives/tooltip'
+import { useSidebar } from './../../../components/ui/primitives/sidebar'
 import { cn } from './../../../lib/utils'
 
-export type PanelId = 'site' | 'settings'
+export type PanelId = 'site' | 'hvac' | 'settings'
 
 interface IconRailProps {
   activePanel: PanelId
@@ -22,12 +23,14 @@ interface IconRailProps {
 
 const panels: { id: PanelId; iconSrc: string; label: string }[] = [
   { id: 'site', iconSrc: '/icons/level.png', label: 'Site' },
+  { id: 'hvac', iconSrc: '/icons/hvac.svg', label: 'HVAC' },
   { id: 'settings', iconSrc: '/icons/settings.png', label: 'Settings' },
 ]
 
 export function IconRail({ activePanel, onPanelChange, appMenuButton, className }: IconRailProps) {
   const theme = useViewer((state) => state.theme)
   const setTheme = useViewer((state) => state.setTheme)
+  const { open, toggleSidebar } = useSidebar()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -77,6 +80,24 @@ export function IconRail({ activePanel, onPanelChange, appMenuButton, className 
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Sidebar Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg text-foreground transition-all hover:bg-accent"
+            onClick={toggleSidebar}
+            type="button"
+          >
+            {open ? (
+              <PanelLeftClose className="h-4 w-4" />
+            ) : (
+              <PanelLeftOpen className="h-4 w-4" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{open ? 'Collapse sidebar' : 'Expand sidebar'}</TooltipContent>
+      </Tooltip>
 
       {/* Theme Toggle */}
       {mounted && (

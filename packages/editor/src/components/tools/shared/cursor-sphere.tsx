@@ -15,7 +15,7 @@ interface CursorSphereProps extends Omit<ThreeElements['group'], 'ref'> {
 }
 
 export const CursorSphere = forwardRef<Group, CursorSphereProps>(function CursorSphere(
-  { color = '#818cf8', showTooltip = true, height = 2.5, ...props },
+  { color = '#134d8b', showTooltip = true, height = 2.5, ...props },
   ref,
 ) {
   const tool = useEditor((s) => s.tool)

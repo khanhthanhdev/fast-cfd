@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Barlow } from 'next/font/google'
 import localFont from 'next/font/local'
-import Script from 'next/script'
 import './globals.css'
 
 const geistSans = localFont({
@@ -21,8 +20,8 @@ const barlow = Barlow({
 })
 
 export const metadata: Metadata = {
-  title: 'Pascal Editor',
-  description: 'Standalone building editor',
+  title: 'Fast CFD - VinUni',
+  description: 'Building editor and Fast CFD for HVAC plan',
 }
 
 export default function RootLayout({
@@ -33,7 +32,8 @@ export default function RootLayout({
   return (
     <html className={`${geistSans.variable} ${geistMono.variable} ${barlow.variable}`} lang="en">
       <head>
-        {process.env.NODE_ENV === 'development' && (
+        {/* React Scan & Grab disabled */}
+        {/* {process.env.NODE_ENV === 'development' && (
           <>
             <Script
               crossOrigin="anonymous"
@@ -46,7 +46,7 @@ export default function RootLayout({
               strategy="beforeInteractive"
             />
           </>
-        )}
+        )} */}
       </head>
       <body className="font-sans">{children}</body>
     </html>

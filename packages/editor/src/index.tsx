@@ -1,3 +1,5 @@
+import './three-types'
+
 export type { EditorProps } from './components/editor'
 export { default as Editor } from './components/editor'
 export { useCommandPalette } from './components/ui/command-palette'

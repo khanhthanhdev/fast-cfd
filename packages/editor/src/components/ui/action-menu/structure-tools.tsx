@@ -7,7 +7,7 @@ import { cn } from '../../../lib/utils'
 import useEditor, {
   type CatalogCategory,
   type StructureTool,
-  Tool,
+  type Tool,
 } from '../../../store/use-editor'
 import { ActionButton } from './action-button'
 
@@ -28,6 +28,8 @@ export const tools: ToolConfig[] = [
   { id: 'door', iconSrc: '/icons/door.png', label: 'Door' },
   { id: 'window', iconSrc: '/icons/window.png', label: 'Window' },
   { id: 'zone', iconSrc: '/icons/zone.png', label: 'Zone' },
+  { id: 'hvac', iconSrc: '/icons/hvac.svg', label: 'HVAC' },
+  { id: 'diffuser', iconSrc: '/icons/diffuser.svg', label: 'Diffuser' },
 ]
 
 export function StructureTools() {

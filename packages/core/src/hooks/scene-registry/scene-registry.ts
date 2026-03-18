@@ -21,6 +21,8 @@ export const sceneRegistry = {
     guide: new Set<string>(),
     window: new Set<string>(),
     door: new Set<string>(),
+    heatmap: new Set<string>(),
+    'particle-system': new Set<string>(),
   },
 }
 

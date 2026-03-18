@@ -29,7 +29,20 @@ export { SiteNode } from './nodes/site'
 export { SlabNode } from './nodes/slab'
 export { WallNode } from './nodes/wall'
 export { WindowNode } from './nodes/window'
-export { ZoneNode } from './nodes/zone'
+export { ZoneNode, createZoneFromSpace } from './nodes/zone'
+export { HeatmapNode } from './nodes/heatmap'
+export type { HeatmapData } from './nodes/heatmap'
+export { ParticleSystemNode } from './nodes/particle-system'
+export type {
+  ParticleSystemNode as ParticleSystemNodeType,
+  ParticleEmitter,
+  ParticleAttractor,
+  VelocityField3D,
+  TemperatureField3D,
+  PressureField3D,
+} from './nodes/particle-system'
+// Events
+export type { ParticleSystemEvent } from '../events/bus'
 export type { AnyNodeId, AnyNodeType } from './types'
 // Union types
 export { AnyNode } from './types'

@@ -235,8 +235,7 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
   const editorContent = (
     <group>
       {/* Border line */}
-      <line
-        // @ts-expect-error R3F <line> element conflicts with SVG <line> type
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         raycast={() => {}}
@@ -252,7 +251,7 @@ export const PolygonEditor: React.FC<PolygonEditorProps> = ({
           opacity={0.8}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* Vertex handles - blue cylinders that match surface height */}
       {displayPolygon.map(([x, z], index) => {

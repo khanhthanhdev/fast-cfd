@@ -12,6 +12,8 @@ import { SlabNode } from './nodes/slab'
 import { WallNode } from './nodes/wall'
 import { WindowNode } from './nodes/window'
 import { ZoneNode } from './nodes/zone'
+import { HeatmapNode } from './nodes/heatmap'
+import { ParticleSystemNode } from './nodes/particle-system'
 
 export const AnyNode = z.discriminatedUnion('type', [
   SiteNode,
@@ -27,6 +29,8 @@ export const AnyNode = z.discriminatedUnion('type', [
   GuideNode,
   WindowNode,
   DoorNode,
+  HeatmapNode,
+  ParticleSystemNode,
 ])
 
 export type AnyNode = z.infer<typeof AnyNode>

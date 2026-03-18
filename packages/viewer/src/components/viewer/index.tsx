@@ -3,6 +3,7 @@
 import {
   CeilingSystem,
   DoorSystem,
+  HeatmapSystem,
   ItemSystem,
   RoofSystem,
   SlabSystem,
@@ -58,6 +59,7 @@ declare module '@react-three/fiber' {
 }
 
 extend(THREE as any)
+extend({ ThreeLine: THREE.Line })
 
 interface ViewerProps {
   children?: React.ReactNode
@@ -103,6 +105,7 @@ const Viewer: React.FC<ViewerProps> = ({ children, selectionManager = 'default' 
       {/* Core systems */}
       <CeilingSystem />
       <DoorSystem />
+      <HeatmapSystem />
       <ItemSystem />
       <RoofSystem />
       <SlabSystem />

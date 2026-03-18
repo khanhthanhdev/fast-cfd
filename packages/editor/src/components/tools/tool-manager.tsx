@@ -16,6 +16,8 @@ import { WallTool } from './wall/wall-tool'
 import { WindowTool } from './window/window-tool'
 import { ZoneBoundaryEditor } from './zone/zone-boundary-editor'
 import { ZoneTool } from './zone/zone-tool'
+import { HVACTool } from './hvac/hvac-tool'
+import { DiffuserTool } from './hvac/diffuser-tool'
 
 const tools: Record<Phase, Partial<Record<Tool, React.FC>>> = {
   site: {
@@ -30,6 +32,8 @@ const tools: Record<Phase, Partial<Record<Tool, React.FC>>> = {
     item: ItemTool,
     zone: ZoneTool,
     window: WindowTool,
+    hvac: HVACTool,
+    diffuser: DiffuserTool,
   },
   furnish: {
     item: ItemTool,

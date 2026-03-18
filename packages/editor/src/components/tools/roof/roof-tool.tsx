@@ -210,8 +210,7 @@ export const RoofTool: React.FC = () => {
       <CursorSphere ref={cursorRef} />
 
       {/* Outline showing rectangle being drawn (Ground) */}
-      {/* @ts-ignore */}
-      <line
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         ref={outlineRef}
@@ -220,19 +219,19 @@ export const RoofTool: React.FC = () => {
       >
         <bufferGeometry />
         <lineBasicNodeMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={false}
           linewidth={2}
           opacity={0.3}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* First corner marker */}
       {corner1 && (
         <CursorSphere
-          color="#818cf8"
+          color="#134d8b"
           position={[corner1[0], levelY + GRID_OFFSET, corner1[2]]}
           showTooltip={false}
         />
@@ -247,7 +246,7 @@ export const RoofTool: React.FC = () => {
         >
           <planeGeometry args={[previewDimensions.length, previewDimensions.width]} />
           <meshBasicMaterial
-            color="#818cf8"
+            color="#134d8b"
             depthTest={false}
             depthWrite={false}
             opacity={0.1}

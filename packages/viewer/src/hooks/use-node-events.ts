@@ -7,6 +7,8 @@ import {
   type DoorNode,
   type EventSuffix,
   emitter,
+  type HeatmapEvent,
+  type HeatmapNode,
   type ItemEvent,
   type ItemNode,
   type LevelEvent,
@@ -23,6 +25,8 @@ import {
   type WindowNode,
   type ZoneEvent,
   type ZoneNode,
+  type ParticleSystemNode,
+  type ParticleSystemEvent,
 } from '@pascal-app/core'
 import type { ThreeEvent } from '@react-three/fiber'
 import useViewer from '../store/use-viewer'
@@ -39,6 +43,8 @@ type NodeConfig = {
   roof: { node: RoofNode; event: RoofEvent }
   window: { node: WindowNode; event: WindowEvent }
   door: { node: DoorNode; event: DoorEvent }
+  heatmap: { node: HeatmapNode; event: HeatmapEvent }
+  'particle-system': { node: ParticleSystemNode; event: ParticleSystemEvent }
 }
 
 type NodeType = keyof NodeConfig

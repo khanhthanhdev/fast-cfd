@@ -15,7 +15,9 @@ export type {
   SlabEvent,
   WallEvent,
   WindowEvent,
+  HeatmapEvent,
   ZoneEvent,
+  ParticleSystemEvent,
 } from './events/bus'
 // Events
 export { emitter, eventSuffixes } from './events/bus'
@@ -50,6 +52,8 @@ export { default as useScene } from './store/use-scene'
 // Systems
 export { CeilingSystem } from './systems/ceiling/ceiling-system'
 export { DoorSystem } from './systems/door/door-system'
+export { HeatmapSystem } from './systems/heatmap/heatmap-system'
+export { diffuseHeat } from './systems/heatmap/heat-diffusion'
 export { ItemSystem } from './systems/item/item-system'
 export { RoofSystem } from './systems/roof/roof-system'
 export { SlabSystem } from './systems/slab/slab-system'

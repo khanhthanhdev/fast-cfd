@@ -1,6 +1,7 @@
 'use client'
 
 import { type AnyNode, useScene } from '@pascal-app/core'
+import { useViewer } from '@pascal-app/viewer'
 import { BuildingRenderer } from './building/building-renderer'
 import { CeilingRenderer } from './ceiling/ceiling-renderer'
 import { DoorRenderer } from './door/door-renderer'
@@ -14,9 +15,11 @@ import { SlabRenderer } from './slab/slab-renderer'
 import { WallRenderer } from './wall/wall-renderer'
 import { WindowRenderer } from './window/window-renderer'
 import { ZoneRenderer } from './zone/zone-renderer'
+import { Heatmap3DRenderer } from './heatmap/heatmap-3d-renderer'
 
 export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
   const node = useScene((state) => state.nodes[nodeId])
+  const showVectors = useViewer((state) => state.showHeatmapVectors)
 
   if (!node) return null
 
@@ -35,6 +38,7 @@ export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
       {node.type === 'roof' && <RoofRenderer node={node} />}
       {node.type === 'scan' && <ScanRenderer node={node} />}
       {node.type === 'guide' && <GuideRenderer node={node} />}
+      {node.type === 'heatmap' && <Heatmap3DRenderer node={node} showVectors={showVectors} />}
     </>
   )
 }

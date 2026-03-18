@@ -44,6 +44,16 @@ type ViewerState = {
   showGrid: boolean
   setShowGrid: (show: boolean) => void
 
+  // HVAC visualization
+  showHeatmapVectors: boolean
+  setShowHeatmapVectors: (show: boolean) => void
+
+  // 3D Heatmap visualization (Phase 1: 3D CFD Support)
+  heatmapRenderMode: '2d' | '3d-slice' | '3d-volume'
+  setHeatmapRenderMode: (mode: '2d' | '3d-slice' | '3d-volume') => void
+  heatmapSlicePosition: number
+  setHeatmapSlicePosition: (position: number) => void
+
   projectId: string | null
   setProjectId: (id: string | null) => void
   projectPreferences: Record<
@@ -65,7 +75,7 @@ type ViewerState = {
   setCameraDragging: (dragging: boolean) => void
 }
 
-const useViewer = create<ViewerState>()(
+const useViewerStore = create<ViewerState>()(
   persist(
     (set) => ({
       selection: { buildingId: null, levelId: null, zoneId: null, selectedIds: [] },
@@ -122,6 +132,14 @@ const useViewer = create<ViewerState>()(
           }
           return { showGrid: show, projectPreferences }
         }),
+
+      showHeatmapVectors: false,
+      setShowHeatmapVectors: (show) => set({ showHeatmapVectors: show }),
+
+      heatmapRenderMode: '2d',
+      setHeatmapRenderMode: (mode) => set({ heatmapRenderMode: mode }),
+      heatmapSlicePosition: 0.5,
+      setHeatmapSlicePosition: (position) => set({ heatmapSlicePosition: position }),
 
       projectId: null,
       setProjectId: (id) =>
@@ -189,4 +207,5 @@ const useViewer = create<ViewerState>()(
   ),
 )
 
-export default useViewer
+export default useViewerStore
+export { useViewerStore }

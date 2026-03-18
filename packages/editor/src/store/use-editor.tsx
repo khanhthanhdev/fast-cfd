@@ -31,6 +31,8 @@ export type StructureTool =
   | 'zone'
   | 'window'
   | 'door'
+  | 'hvac'
+  | 'diffuser'
 
 // Furnish mode tools (items and decoration)
 export type FurnishTool = 'item'

@@ -25,3 +25,26 @@ export const ZoneNode = BaseNode.extend({
 )
 
 export type ZoneNode = z.infer<typeof ZoneNode>
+
+/**
+ * Creates a ZoneNode from a detected Space
+ * @param space - The detected space from space detection
+ * @param name - Name for the zone (e.g., "Room 1", "Bedroom")
+ * @param levelId - The level ID this zone belongs to
+ * @returns Partial<ZoneNode> ready to be passed to createNode()
+ */
+export function createZoneFromSpace(
+  space: { polygon: Array<[number, number]>; id: string },
+  name: string,
+): Partial<ZoneNode> {
+  return {
+    type: 'zone',
+    name,
+    polygon: space.polygon,
+    color: '#3b82f6', // Default blue
+    metadata: {
+      createdFrom: 'space-detection',
+      sourceSpaceId: space.id,
+    },
+  }
+}

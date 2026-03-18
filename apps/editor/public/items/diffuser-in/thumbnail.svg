@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1a1a2e"/>
+  <g transform="translate(100, 100)">
+    <!-- Diffuser In - square ceiling mount with inward arrows -->
+    <rect x="-40" y="-40" width="80" height="80" fill="#0ea5e9" stroke="#38bdf8" stroke-width="3" rx="4"/>
+    <rect x="-25" y="-25" width="50" height="50" fill="#0369a1" opacity="0.5" rx="2"/>
+    <!-- Inward arrows (air going IN) -->
+    <path d="M -30 -15 L -15 -15 M -20 -20 L -15 -15 L -20 -10" stroke="#7dd3fc" stroke-width="2" fill="none"/>
+    <path d="M 30 15 L 15 15 M 20 20 L 15 15 L 20 10" stroke="#7dd3fc" stroke-width="2" fill="none"/>
+    <path d="M -15 30 L -15 15 M -20 20 L -15 15 L -10 20" stroke="#7dd3fc" stroke-width="2" fill="none"/>
+    <path d="M 15 -30 L 15 -15 M 10 -20 L 15 -15 L 20 -20" stroke="#7dd3fc" stroke-width="2" fill="none"/>
+  </g>
+  <text x="100" y="185" text-anchor="middle" fill="#7dd3fc" font-size="12" font-family="system-ui">Diffuser In (S)</text>
+</svg>

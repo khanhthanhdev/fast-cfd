@@ -313,7 +313,7 @@ export const CeilingTool: React.FC = () => {
       >
         <ringGeometry args={[0.15, 0.2, 32]} />
         <meshBasicMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={true}
           opacity={0.5}
@@ -323,16 +323,15 @@ export const CeilingTool: React.FC = () => {
       </mesh>
 
       {/* Vertical connector: local y=0 at grid, y=H at ceiling; position.y set to gridY on move */}
-      {/* @ts-ignore */}
-      <line geometry={verticalGeo} layers={EDITOR_LAYER} ref={verticalLineRef} renderOrder={1}>
+      <threeLine geometry={verticalGeo} layers={EDITOR_LAYER} ref={verticalLineRef} renderOrder={1}>
         <lineBasicNodeMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={false}
           opacityNode={gradientOpacityNode}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* Preview fill (Top) */}
       {previewShape && (
@@ -344,7 +343,7 @@ export const CeilingTool: React.FC = () => {
         >
           <shapeGeometry args={[previewShape]} />
           <meshBasicMaterial
-            color="#818cf8"
+            color="#134d8b"
             depthTest={false}
             opacity={0.15}
             side={DoubleSide}
@@ -363,7 +362,7 @@ export const CeilingTool: React.FC = () => {
         >
           <shapeGeometry args={[previewShape]} />
           <meshBasicMaterial
-            color="#818cf8"
+            color="#134d8b"
             depthTest={false}
             opacity={0.1}
             side={DoubleSide}
@@ -373,8 +372,7 @@ export const CeilingTool: React.FC = () => {
       )}
 
       {/* Main line */}
-      {/* @ts-ignore */}
-      <line
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         ref={mainLineRef}
@@ -382,12 +380,11 @@ export const CeilingTool: React.FC = () => {
         visible={false}
       >
         <bufferGeometry />
-        <lineBasicNodeMaterial color="#818cf8" depthTest={false} depthWrite={false} linewidth={3} />
-      </line>
+        <lineBasicNodeMaterial color="#134d8b" depthTest={false} depthWrite={false} linewidth={3} />
+      </threeLine>
 
       {/* Closing line */}
-      {/* @ts-ignore */}
-      <line
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         ref={closingLineRef}
@@ -396,18 +393,17 @@ export const CeilingTool: React.FC = () => {
       >
         <bufferGeometry />
         <lineBasicNodeMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={false}
           linewidth={2}
           opacity={0.5}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* Ground main line */}
-      {/* @ts-ignore */}
-      <line
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         ref={groundMainLineRef}
@@ -416,18 +412,17 @@ export const CeilingTool: React.FC = () => {
       >
         <bufferGeometry />
         <lineBasicNodeMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={false}
           linewidth={3}
           opacity={0.3}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* Ground closing line */}
-      {/* @ts-ignore */}
-      <line
+      <threeLine
         frustumCulled={false}
         layers={EDITOR_LAYER}
         ref={groundClosingLineRef}
@@ -436,19 +431,19 @@ export const CeilingTool: React.FC = () => {
       >
         <bufferGeometry />
         <lineBasicNodeMaterial
-          color="#818cf8"
+          color="#134d8b"
           depthTest={false}
           depthWrite={false}
           linewidth={2}
           opacity={0.15}
           transparent
         />
-      </line>
+      </threeLine>
 
       {/* Point markers */}
       {points.map(([x, z], index) => (
         <CursorSphere
-          color="#818cf8"
+          color="#134d8b"
           key={index}
           position={[x, levelY + CEILING_HEIGHT + 0.01, z]}
           showTooltip={false}

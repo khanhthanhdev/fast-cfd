@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1a1a2e"/>
+  <g transform="translate(100, 100)">
+    <!-- Supply diffuser - square ceiling mount -->
+    <rect x="-40" y="-40" width="80" height="80" fill="#3b82f6" stroke="#60a5fa" stroke-width="3" rx="4"/>
+    <rect x="-25" y="-25" width="50" height="50" fill="#1e40af" opacity="0.5" rx="2"/>
+    <!-- Direction arrows -->
+    <path d="M -15 0 L 15 0 M 5 -5 L 15 0 L 5 5" stroke="#134d8b" stroke-width="2" fill="none"/>
+    <path d="M 0 -15 L 0 15 M -5 5 L 0 15 L 5 5" stroke="#134d8b" stroke-width="2" fill="none"/>
+  </g>
+  <text x="100" y="185" text-anchor="middle" fill="#134d8b" font-size="12" font-family="system-ui">Supply Diffuser</text>
+</svg>

@@ -6,12 +6,14 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
+  useSidebar,
   useSidebarStore,
 } from './../../../components/ui/primitives/sidebar'
 import { cn } from './../../../lib/utils'
 import { IconRail, type PanelId } from './icon-rail'
 import { SettingsPanel, type SettingsPanelProps } from './panels/settings-panel'
 import { SitePanel, type SitePanelProps } from './panels/site-panel'
+import { HVACPanel } from './panels/hvac-panel'
 
 interface AppSidebarProps {
   appMenuButton?: ReactNode
@@ -27,6 +29,7 @@ export function AppSidebar({
   sitePanelProps,
 }: AppSidebarProps) {
   const [activePanel, setActivePanel] = useState<PanelId>('site')
+  const { open } = useSidebar()
 
   useEffect(() => {
     // Widen default sidebar (288px → 432px) for better project title visibility
@@ -40,6 +43,8 @@ export function AppSidebar({
     switch (activePanel) {
       case 'site':
         return <SitePanel {...sitePanelProps} />
+      case 'hvac':
+        return <HVACPanel />
       case 'settings':
         return <SettingsPanel {...settingsPanelProps} />
       default:
@@ -49,7 +54,7 @@ export function AppSidebar({
 
   return (
     <>
-      <Sidebar className={cn('dark text-white')} variant="floating">
+      <Sidebar className={cn('dark text-white')} collapsible="icon" variant="floating">
         <div className="flex h-full">
           {/* Icon Rail */}
           <IconRail
@@ -58,18 +63,20 @@ export function AppSidebar({
             onPanelChange={setActivePanel}
           />
 
-          {/* Panel Content */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {sidebarTop && (
-              <SidebarHeader className="relative flex-col items-start justify-center gap-1 border-border/50 border-b px-3 py-3">
-                {sidebarTop}
-              </SidebarHeader>
-            )}
+          {/* Panel Content - hidden when collapsed */}
+          {open && (
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {sidebarTop && (
+                <SidebarHeader className="relative flex-col items-start justify-center gap-1 border-border/50 border-b px-3 py-3">
+                  {sidebarTop}
+                </SidebarHeader>
+              )}
 
-            <SidebarContent className={cn('no-scrollbar flex flex-1 flex-col overflow-hidden')}>
-              {renderPanelContent()}
-            </SidebarContent>
-          </div>
+              <SidebarContent className={cn('no-scrollbar flex flex-1 flex-col overflow-hidden')}>
+                {renderPanelContent()}
+              </SidebarContent>
+            </div>
+          )}
         </div>
       </Sidebar>
       <CommandPalette />

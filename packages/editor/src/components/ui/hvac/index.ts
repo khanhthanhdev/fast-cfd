@@ -1,0 +1,6 @@
+export { ComfortKPIDisplay } from './comfort-kpi-display'
+export { HeatmapLegend } from './heatmap-legend'
+export { ExportReportButton } from './export-report-button'
+export { RoomSelector } from './room-selector'
+export { VisualizationControls } from './visualization-controls'
+export type { SpaceOption } from './room-selector'

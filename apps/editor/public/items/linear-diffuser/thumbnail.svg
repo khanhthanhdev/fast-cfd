@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1a1a2e"/>
+  <g transform="translate(100, 100)">
+    <!-- Linear diffuser - slot type -->
+    <rect x="-60" y="-10" width="120" height="20" fill="#2563eb" stroke="#3b82f6" stroke-width="2" rx="2"/>
+    <!-- Linear slots -->
+    <line x1="-50" y1="-5" x2="50" y2="-5" stroke="#60a5fa" stroke-width="1.5"/>
+    <line x1="-50" y1="5" x2="50" y2="5" stroke="#60a5fa" stroke-width="1.5"/>
+    <!-- Direction indicators -->
+    <path d="M -30 15 L -30 25 M -35 20 L -30 25 L -25 20" stroke="#134d8b" stroke-width="2" fill="none"/>
+    <path d="M 0 15 L 0 25 M -5 20 L 0 25 L 5 20" stroke="#134d8b" stroke-width="2" fill="none"/>
+    <path d="M 30 15 L 30 25 M 25 20 L 30 25 L 35 20" stroke="#134d8b" stroke-width="2" fill="none"/>
+  </g>
+  <text x="100" y="185" text-anchor="middle" fill="#60a5fa" font-size="12" font-family="system-ui">Linear Diffuser</text>
+</svg>

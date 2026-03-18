@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#1a1a2e"/>
+  <g transform="translate(100, 100)">
+    <!-- Diffuser Out - square ceiling mount with outward arrows -->
+    <rect x="-40" y="-40" width="80" height="80" fill="#f97316" stroke="#fb923c" stroke-width="3" rx="4"/>
+    <rect x="-25" y="-25" width="50" height="50" fill="#c2410c" opacity="0.5" rx="2"/>
+    <!-- Outward arrows (air going OUT) -->
+    <path d="M -15 -15 L -30 -15 M -20 -20 L -30 -15 L -20 -10" stroke="#fdba74" stroke-width="2" fill="none"/>
+    <path d="M 15 15 L 30 15 M 20 20 L 30 15 L 20 10" stroke="#fdba74" stroke-width="2" fill="none"/>
+    <path d="M -15 15 L -15 30 M -20 20 L -15 30 L -10 20" stroke="#fdba74" stroke-width="2" fill="none"/>
+    <path d="M 15 -15 L 15 -30 M 10 -20 L 15 -30 L 20 -20" stroke="#fdba74" stroke-width="2" fill="none"/>
+  </g>
+  <text x="100" y="185" text-anchor="middle" fill="#fdba74" font-size="12" font-family="system-ui">Diffuser Out (S)</text>
+</svg>

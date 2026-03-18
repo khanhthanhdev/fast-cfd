@@ -4,8 +4,10 @@ import type {
   BuildingNode,
   CeilingNode,
   DoorNode,
+  HeatmapNode,
   ItemNode,
   LevelNode,
+  ParticleSystemNode,
   RoofNode,
   SiteNode,
   SlabNode,
@@ -41,6 +43,8 @@ export type CeilingEvent = NodeEvent<CeilingNode>
 export type RoofEvent = NodeEvent<RoofNode>
 export type WindowEvent = NodeEvent<WindowNode>
 export type DoorEvent = NodeEvent<DoorNode>
+export type HeatmapEvent = NodeEvent<HeatmapNode>
+export type ParticleSystemEvent = NodeEvent<ParticleSystemNode>
 
 // Event suffixes - exported for use in hooks
 export const eventSuffixes = [
@@ -102,6 +106,8 @@ type EditorEvents = GridEvents &
   NodeEvents<'roof', RoofEvent> &
   NodeEvents<'window', WindowEvent> &
   NodeEvents<'door', DoorEvent> &
+  NodeEvents<'heatmap', HeatmapEvent> &
+  NodeEvents<'particle-system', ParticleSystemEvent> &
   CameraControlEvents &
   ToolEvents &
   PresetEvents
