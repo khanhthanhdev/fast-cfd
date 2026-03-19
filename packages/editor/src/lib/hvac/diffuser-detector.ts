@@ -14,6 +14,7 @@ export interface DiffuserInfo {
   position: [number, number, number]
   itemId: string
   name: string
+  metadata?: Record<string, unknown>
 }
 
 /**

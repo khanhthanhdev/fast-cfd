@@ -18,6 +18,8 @@ export interface HVACScenario {
   results?: {
     temperatureGrid: number[][]
     velocityGrid: number[][]
+    temperatureGrid3D?: number[][][]
+    velocityGrid3D?: number[][][]
     averageTemperature: number
     pmv: number
     comfortScore: number

@@ -6,11 +6,11 @@ import { ToggleControl } from '../controls/toggle-control'
 import { SliderControl } from '../controls/slider-control'
 
 interface VisualizationControlsProps {
-  visualizationType: 'temperature' | 'velocity' | 'pmv'
+  visualizationType: 'temperature' | 'velocity' | 'pmv' | 'speed' | 'pressure'
   colorScheme: 'jet' | 'viridis' | 'plasma' | 'coolwarm'
   opacity: number
   showVectors: boolean
-  onVisualizationTypeChange: (type: 'temperature' | 'velocity' | 'pmv') => void
+  onVisualizationTypeChange: (type: 'temperature' | 'velocity' | 'pmv' | 'speed' | 'pressure') => void
   onColorSchemeChange: (scheme: 'jet' | 'viridis' | 'plasma' | 'coolwarm') => void
   onOpacityChange: (opacity: number) => void
   onShowVectorsChange: (show: boolean) => void
@@ -51,8 +51,8 @@ export const VisualizationControls = ({
         <label className="text-[10px] font-medium text-muted-foreground mb-1.5 block">
           Display Mode
         </label>
-        <div className="grid grid-cols-3 gap-1">
-          {(['temperature', 'velocity', 'pmv'] as const).map((type) => (
+        <div className="grid grid-cols-5 gap-1">
+          {(['temperature', 'velocity', 'pmv', 'speed', 'pressure'] as const).map((type) => (
             <button
               key={type}
               onClick={() => onVisualizationTypeChange(type)}

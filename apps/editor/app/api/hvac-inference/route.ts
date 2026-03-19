@@ -2,36 +2,89 @@ import { type NextRequest, NextResponse } from 'next/server'
 
 /**
  * POST /api/hvac-inference
- * AI inference endpoint for HVAC CFD prediction
+ *
+ * Supports two request modes:
+ *
+ * 1. GINOT Neural Operator mode (new):
+ *    - Request: { load, pc, xyt, metadata? }
+ *    - Response: { positions, velocities, pressure, speed, bounds }
+ *
+ * 2. Legacy 12-feature surrogate model mode (deprecated):
+ *    - Request: { features: number[12], gridSize?, verticalLevels? }
+ *    - Response: { temperatureGrid, velocityGrid, temperatureGrid3D, ... }
  *
  * As per PRD NFR-001: Response time < 10 seconds
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { features, gridSize, verticalLevels } = body
 
-    // Validate input
-    if (!Array.isArray(features) || features.length !== 12) {
-      return NextResponse.json(
-        { error: 'Invalid feature vector. Expected 12 features.' },
-        { status: 400 },
+    // Detect request mode by checking for GINOT tensor fields
+    const isGinotMode = 'load' in body && 'pc' in body && 'xyt' in body
+
+    if (isGinotMode) {
+      // GINOT Neural Operator mode
+      const { load, pc, xyt, metadata } = body
+
+      // Validate GINOT input
+      if (!Array.isArray(load) || load.length !== 9) {
+        return NextResponse.json(
+          { error: 'Invalid load vector. Expected array of 9 elements.' },
+          { status: 400 },
+        )
+      }
+
+      if (!Array.isArray(pc) || pc.length === 0) {
+        return NextResponse.json(
+          { error: 'Invalid pc (boundary points). Expected non-empty array.' },
+          { status: 400 },
+        )
+      }
+
+      if (!Array.isArray(xyt) || xyt.length === 0) {
+        return NextResponse.json(
+          { error: 'Invalid xyt (interior points). Expected non-empty array.' },
+          { status: 400 },
+        )
+      }
+
+      // TODO: Call actual GINOT Python service
+      // For now, return mock GINOT-style response
+      const mockResponse = generateMockGinotResponse(load, pc, xyt)
+
+      return NextResponse.json({
+        ...mockResponse,
+        inferenceId: crypto.randomUUID(),
+        timestamp: Date.now(),
+        mode: 'ginot',
+      })
+    } else {
+      // Legacy 12-feature surrogate model mode
+      const { features, gridSize, verticalLevels } = body
+
+      // Validate input
+      if (!Array.isArray(features) || features.length !== 12) {
+        return NextResponse.json(
+          { error: 'Invalid feature vector. Expected 12 features.' },
+          { status: 400 },
+        )
+      }
+
+      // TODO: Call actual AI model service
+      // For MVP, return mock data based on input parameters
+      const mockResponse = generateMockCFDData3D(
+        features,
+        gridSize || 20,
+        verticalLevels || 10,
       )
+
+      return NextResponse.json({
+        ...mockResponse,
+        inferenceId: crypto.randomUUID(),
+        timestamp: Date.now(),
+        mode: 'legacy',
+      })
     }
-
-    // TODO: Call actual AI model service
-    // For MVP, return mock data based on input parameters
-    const mockResponse = generateMockCFDData3D(
-      features,
-      gridSize || 20,
-      verticalLevels || 10,
-    )
-
-    return NextResponse.json({
-      ...mockResponse,
-      inferenceId: crypto.randomUUID(),
-      timestamp: Date.now(),
-    })
   } catch (error) {
     console.error('HVAC inference error:', error)
     return NextResponse.json(
@@ -187,5 +240,126 @@ function generateMockCFDData3D(
     comfortScore: 0.85,
     verticalLevels,
     heightOffsets,
+  }
+}
+
+/**
+ * Generate mock GINOT-style response
+ *
+ * GINOT model output:
+ * - predictions: [1, N, 4] = [U, V, W, p] at each xyt point
+ *
+ * This mock generates physically plausible airflow fields based on:
+ * - Load vector (inlet/outlet positions and velocity)
+ * - Query point positions (xyt)
+ * - Boundary point cloud (pc) for room scale
+ */
+function generateMockGinotResponse(
+  load: number[],
+  pc: number[],
+  xyt: number[]
+): {
+  positions: number[][]
+  velocities: number[][]
+  pressure: number[]
+  speed: number[]
+  bounds: { min: number[]; max: number[] }
+  metadata: {
+    inletCenter: number[]
+    outletCenter: number[]
+    inletVelocity: number[]
+  }
+} {
+  const interiorCount = xyt.length / 3
+
+  // Extract load vector components
+  const inletCenter = [load[0]!, load[1]!, load[2]!]
+  const outletCenter = [load[3]!, load[4]!, load[5]!]
+  const inletVelocity = [load[6]!, load[7]!, load[8]!]
+
+  // Compute bounds from pc (boundary points) for denormalization reference
+  let minPc: [number, number, number] = [Infinity, Infinity, Infinity]
+  let maxPc: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+  for (let i = 0; i < pc.length; i += 3) {
+    const x = pc[i]!
+    const y = pc[i + 1]!
+    const z = pc[i + 2]!
+    minPc[0] = Math.min(minPc[0], x)
+    minPc[1] = Math.min(minPc[1], y)
+    minPc[2] = Math.min(minPc[2], z)
+    maxPc[0] = Math.max(maxPc[0], x)
+    maxPc[1] = Math.max(maxPc[1], y)
+    maxPc[2] = Math.max(maxPc[2], z)
+  }
+
+  const positions: number[][] = []
+  const velocities: number[][] = []
+  const pressure: number[] = []
+  const speed: number[] = []
+
+  // Generate mock predictions for each interior point
+  for (let i = 0; i < interiorCount; i++) {
+    const x = xyt[i * 3]!
+    const y = xyt[i * 3 + 1]!
+    const z = xyt[i * 3 + 2]!
+
+    // Store position (normalized)
+    positions.push([x, y, z])
+
+    // Mock velocity field based on distance from inlet
+    const dx = x - inletCenter[0]!
+    const dy = y - inletCenter[1]!
+    const dz = z - inletCenter[2]!
+    const distFromInlet = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+    // Velocity decays with distance from inlet, with direction toward outlet
+    const decayFactor = Math.exp(-distFromInlet * 2)
+    const baseVel = Math.sqrt(inletVelocity.reduce((a, b) => a + b * b, 0))
+
+    // Blend inlet velocity with gentle flow toward outlet
+    const outletDx = outletCenter[0]! - x
+    const outletDy = outletCenter[1]! - y
+    const outletDz = outletCenter[2]! - z
+    const distToOutlet = Math.sqrt(outletDx * outletDx + outletDy * outletDy + outletDz * outletDz)
+
+    const outletInfluence = 1 - Math.exp(-distToOutlet * 0.5)
+
+    const vx = inletVelocity[0]! * decayFactor + (outletDx / (distToOutlet + 0.1)) * 0.1 * outletInfluence
+    const vy = inletVelocity[1]! * decayFactor + (outletDy / (distToOutlet + 0.1)) * 0.1 * outletInfluence
+    const vz = inletVelocity[2]! * decayFactor + (outletDz / (distToOutlet + 0.1)) * 0.1 * outletInfluence
+
+    velocities.push([vx, vy, vz])
+
+    // Speed magnitude
+    const spd = Math.sqrt(vx * vx + vy * vy + vz * vz)
+    speed.push(parseFloat(spd.toFixed(4)))
+
+    // Mock pressure (higher near inlet, lower near outlet)
+    const distFromOutlet = Math.sqrt(
+      (x - outletCenter[0]!) ** 2 + (y - outletCenter[1]!) ** 2 + (z - outletCenter[2]!) ** 2
+    )
+    const inletPressure = 100 // Pa (mock reference)
+    const outletPressure = 0 // Pa (mock reference)
+    const totalDist = distFromInlet + distFromOutlet
+    const p = totalDist > 0
+      ? inletPressure * (distFromOutlet / totalDist) + outletPressure * (distFromInlet / totalDist)
+      : (inletPressure + outletPressure) / 2
+    pressure.push(parseFloat(p.toFixed(2)))
+  }
+
+  return {
+    positions,
+    velocities,
+    pressure,
+    speed,
+    bounds: {
+      min: minPc,
+      max: maxPc,
+    },
+    metadata: {
+      inletCenter,
+      outletCenter,
+      inletVelocity,
+    },
   }
 }

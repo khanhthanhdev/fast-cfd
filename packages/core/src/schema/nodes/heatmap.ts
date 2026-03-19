@@ -57,6 +57,32 @@ export const HeatmapDataSchema = z.object({
       ),
     )
     .optional(),
+
+  // === GINOT Neural Operator Fields (Phase 2: GINOT Integration) ===
+
+  // Raw point cloud data from GINOT inference
+  // Each point contains position + velocity + pressure + speed
+  ginotPointCloud: z
+    .array(
+      z.object({
+        position: z.tuple([z.number(), z.number(), z.number()]),
+        velocity: z.tuple([z.number(), z.number(), z.number()]),
+        pressure: z.number(),
+        speed: z.number(),
+      })
+    )
+    .optional(),
+
+  // Scalar field: speed (velocity magnitude) at each point
+  speedField: z.array(z.number()).optional(),
+
+  // Scalar field: pressure at each point
+  pressureField: z.array(z.number()).optional(),
+
+  // GINOT-specific visualization type
+  ginotVisualizationType: z
+    .enum(['speed', 'pressure', 'velocity-vectors'])
+    .optional(),
 })
 
 export type HeatmapData = z.infer<typeof HeatmapDataSchema>
@@ -75,7 +101,7 @@ export const HeatmapNode = BaseNode.extend({
 
   // Visualization settings
   visualizationType: z
-    .enum(['temperature', 'velocity', 'pmv'])
+    .enum(['temperature', 'velocity', 'pmv', 'speed', 'pressure'])
     .default('temperature'),
   colorScheme: z
     .enum(['jet', 'viridis', 'plasma', 'coolwarm'])
