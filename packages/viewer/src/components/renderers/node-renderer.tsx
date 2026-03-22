@@ -21,13 +21,11 @@ export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
   const node = useScene((state) => state.nodes[nodeId])
   const showVectors = useViewer((state) => state.showHeatmapVectors)
   const showHeatmap = useViewer((state) => state.showHeatmap)
-  const showHeatParticles = useViewer((state) => state.showHeatParticles)
   const showGinotPointCloud = useViewer((state) => state.showGinotPointCloud)
 
   if (!node) return null
 
-  const shouldRenderHeatmapNode =
-    showHeatmap || showVectors || showHeatParticles || showGinotPointCloud
+  const shouldRenderHeatmapNode = showHeatmap || showVectors || showGinotPointCloud
 
   return (
     <>

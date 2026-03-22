@@ -75,17 +75,9 @@ export {
   type TestRoomConfig,
 } from './mock-room-generator'
 export {
-  buildParticleSystemNodeConfig,
-  createAttractorsFromDiffusers,
-  createEmittersFromDiffusers,
-  generateMockCFDData,
-  generateMockPressureField,
-  generateMockTemperatureField,
-  generateMockVelocityField,
-  type BuildParticleSystemConfigOptions,
-  type MockCFDOptions,
-  type ParticleSystemData,
-} from './mock-cfd-generator'
+  buildGinotHeatmapGrids,
+  type GinotHeatmapGrids,
+} from './ginot-heatmap-builder'
 export {
   exportSceneToStlBlob,
   buildExportScene,

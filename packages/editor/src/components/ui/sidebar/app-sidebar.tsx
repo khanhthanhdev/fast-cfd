@@ -6,6 +6,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
+  SidebarTrigger,
   useSidebar,
   useSidebarStore,
 } from './../../../components/ui/primitives/sidebar'
@@ -29,7 +30,7 @@ export function AppSidebar({
   sitePanelProps,
 }: AppSidebarProps) {
   const [activePanel, setActivePanel] = useState<PanelId>('site')
-  const { open } = useSidebar()
+  const { isMobile, open } = useSidebar()
 
   useEffect(() => {
     // Widen default sidebar (288px → 432px) for better project title visibility
@@ -54,6 +55,13 @@ export function AppSidebar({
 
   return (
     <>
+      {isMobile && !open && (
+        <div className="fixed top-4 left-4 z-30 md:hidden">
+          <SidebarTrigger
+            className="size-10 rounded-xl border border-border/50 bg-sidebar/90 shadow-lg backdrop-blur"
+          />
+        </div>
+      )}
       <Sidebar className={cn('dark text-white')} collapsible="icon" variant="floating">
         <div className="flex h-full">
           {/* Icon Rail */}

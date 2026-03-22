@@ -29,35 +29,14 @@ function sanitizeNodeForPersistence(node: AnyNode): AnyNode | null {
     return null
   }
 
+  // Heatmap nodes are simulation results — never persist them.
+  // Users re-run the AI simulation to regenerate heatmaps.
+  if (node.type === 'heatmap') {
+    return null
+  }
+
   const metadata = stripVolatileMetadata(node)
-
-  if (node.type !== 'heatmap') {
-    return metadata === node.metadata ? node : { ...node, metadata }
-  }
-
-  const {
-    ginotPointCloud: _ginotPointCloud,
-    speedField: _speedField,
-    pressureField: _pressureField,
-    ...data
-  } = node.data
-
-  // Mesh inference payloads remain transient until the product has an explicit
-  // storage budget and reload strategy for large point clouds.
-  if (
-    metadata === node.metadata
-    && _ginotPointCloud === undefined
-    && _speedField === undefined
-    && _pressureField === undefined
-  ) {
-    return node
-  }
-
-  return {
-    ...node,
-    data,
-    metadata,
-  }
+  return metadata === node.metadata ? node : { ...node, metadata }
 }
 
 export function sanitizeSceneNodesForPersistence(
@@ -75,9 +54,11 @@ export function sanitizeSceneNodesForPersistence(
 export function sanitizeSceneGraphForPersistence(
   sceneGraph: PersistedSceneGraph,
 ): PersistedSceneGraph {
+  const nodes = sanitizeSceneNodesForPersistence(sceneGraph.nodes)
   return {
     ...sceneGraph,
-    nodes: sanitizeSceneNodesForPersistence(sceneGraph.nodes),
+    nodes,
+    rootNodeIds: sceneGraph.rootNodeIds.filter((id) => id in nodes),
   }
 }
 

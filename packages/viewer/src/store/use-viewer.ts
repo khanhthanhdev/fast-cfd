@@ -57,20 +57,6 @@ type ViewerState = {
   setGinotPointSize: (size: number) => void
   ginotPointOpacity: number
   setGinotPointOpacity: (opacity: number) => void
-  showHeatParticles: boolean
-  setShowHeatParticles: (show: boolean) => void
-  particleDensity: number
-  setParticleDensity: (density: number) => void
-  particleSize: number
-  setParticleSize: (size: number) => void
-  showParticleTrails: boolean
-  setShowParticleTrails: (show: boolean) => void
-  particleTrailLength: number
-  setParticleTrailLength: (length: number) => void
-  particlePressureEnabled: boolean
-  setParticlePressureEnabled: (enabled: boolean) => void
-  particleBuoyancyEnabled: boolean
-  setParticleBuoyancyEnabled: (enabled: boolean) => void
 
   // 3D Heatmap visualization (Phase 1: 3D CFD Support)
   heatmapRenderMode: '2d' | '3d-slice' | '3d-volume'
@@ -161,7 +147,7 @@ const useViewerStore = create<ViewerState>()(
           return { showGrid: show, projectPreferences }
         }),
 
-      showHeatmap: true,
+      showHeatmap: false,
       setShowHeatmap: (show) => set({ showHeatmap: show }),
       showHeatmapVectors: false,
       setShowHeatmapVectors: (show) => set({ showHeatmapVectors: show }),
@@ -173,20 +159,6 @@ const useViewerStore = create<ViewerState>()(
       setGinotPointSize: (size) => set({ ginotPointSize: size }),
       ginotPointOpacity: 0.8,
       setGinotPointOpacity: (opacity) => set({ ginotPointOpacity: opacity }),
-      showHeatParticles: true,
-      setShowHeatParticles: (show) => set({ showHeatParticles: show }),
-      particleDensity: 1,
-      setParticleDensity: (density) => set({ particleDensity: density }),
-      particleSize: 0.034,
-      setParticleSize: (size) => set({ particleSize: size }),
-      showParticleTrails: false,
-      setShowParticleTrails: (show) => set({ showParticleTrails: show }),
-      particleTrailLength: 14,
-      setParticleTrailLength: (length) => set({ particleTrailLength: length }),
-      particlePressureEnabled: false,
-      setParticlePressureEnabled: (enabled) => set({ particlePressureEnabled: enabled }),
-      particleBuoyancyEnabled: false,
-      setParticleBuoyancyEnabled: (enabled) => set({ particleBuoyancyEnabled: enabled }),
 
       heatmapRenderMode: '2d',
       setHeatmapRenderMode: (mode) => set({ heatmapRenderMode: mode }),

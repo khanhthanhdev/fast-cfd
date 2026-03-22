@@ -42,13 +42,6 @@ export const HVACToolPanel = () => {
     ginotPointMetric,
     ginotPointSize,
     ginotPointOpacity,
-    showParticles,
-    particleDensity,
-    particleSize,
-    showParticleTrails,
-    particleTrailLength,
-    particlePressureEnabled,
-    particleBuoyancyEnabled,
     activeHeatmapNode,
     handleRunAnalysis,
     handleVisualizationTypeChange,
@@ -61,13 +54,6 @@ export const HVACToolPanel = () => {
     handleGinotPointMetricChange,
     handleGinotPointSizeChange,
     handleGinotPointOpacityChange,
-    handleShowParticlesChange,
-    handleParticleDensityChange,
-    handleParticleSizeChange,
-    handleParticleTrailsChange,
-    handleParticleTrailLengthChange,
-    handleParticlePressureChange,
-    handleParticleBuoyancyChange,
   } = useHVACAnalysis()
 
   const thermalLegend = useMemo(() => {
@@ -118,13 +104,6 @@ export const HVACToolPanel = () => {
             visualizationType={visualizationType}
             colorScheme={colorScheme}
             opacity={opacity}
-            showParticles={showParticles}
-            particleDensity={particleDensity}
-            particleSize={particleSize}
-            showParticleTrails={showParticleTrails}
-            particleTrailLength={particleTrailLength}
-            particlePressureEnabled={particlePressureEnabled}
-            particleBuoyancyEnabled={particleBuoyancyEnabled}
             showVectors={showVectors}
             hasGinotPointCloud={hasGinotPointCloud}
             showGinotPointCloud={showGinotPointCloud}
@@ -134,13 +113,6 @@ export const HVACToolPanel = () => {
             onVisualizationTypeChange={handleVisualizationTypeChange}
             onColorSchemeChange={handleColorSchemeChange}
             onOpacityChange={handleOpacityChange}
-            onShowParticlesChange={handleShowParticlesChange}
-            onParticleDensityChange={handleParticleDensityChange}
-            onParticleSizeChange={handleParticleSizeChange}
-            onShowParticleTrailsChange={handleParticleTrailsChange}
-            onParticleTrailLengthChange={handleParticleTrailLengthChange}
-            onParticlePressureChange={handleParticlePressureChange}
-            onParticleBuoyancyChange={handleParticleBuoyancyChange}
             onShowVectorsChange={setShowVectors}
             onGinotPointCloudVisibilityChange={handleGinotPointCloudVisibilityChange}
             onGinotPointMetricChange={handleGinotPointMetricChange}
@@ -160,8 +132,8 @@ export const HVACToolPanel = () => {
                 max={thermalLegend.max}
                 unit="°C"
                 colorScheme={colorScheme}
-                label="Particle Temperature"
-                note="Supply particles carry thermal state through the room and disappear into return collectors."
+                label="Air Temperature"
+                note="Temperature field interpolated across the room volume."
               />
             </div>
           )}

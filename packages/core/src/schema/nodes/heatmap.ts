@@ -11,6 +11,9 @@ export const HeatmapDataSchema = z.object({
   // Velocity magnitude grid
   velocityGrid: z.array(z.array(z.number())),
 
+  // Pressure scalar field at slice height
+  pressureGrid: z.array(z.array(z.number())).optional(),
+
   // Velocity direction (optional, for vector visualization)
   velocityDirection: z
     .array(
@@ -42,6 +45,9 @@ export const HeatmapDataSchema = z.object({
 
   // 3D Velocity magnitude [verticalLevel][row][col] (i.e. [y][z][x])
   velocityGrid3D: z.array(z.array(z.array(z.number()))).optional(),
+
+  // 3D Pressure scalar field [verticalLevel][row][col] (i.e. [y][z][x])
+  pressureGrid3D: z.array(z.array(z.array(z.number()))).optional(),
 
   // 3D Velocity direction [verticalLevel][row][col] -> {x, y, z}
   velocityGrid3DDirection: z

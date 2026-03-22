@@ -9,13 +9,6 @@ interface VisualizationControlsProps {
   visualizationType: 'speed' | 'pressure'
   colorScheme: 'jet' | 'viridis' | 'plasma' | 'coolwarm'
   opacity: number
-  showParticles: boolean
-  particleDensity: number
-  particleSize: number
-  showParticleTrails: boolean
-  particleTrailLength: number
-  particlePressureEnabled: boolean
-  particleBuoyancyEnabled: boolean
   showVectors: boolean
   hasGinotPointCloud?: boolean
   showGinotPointCloud?: boolean
@@ -25,13 +18,6 @@ interface VisualizationControlsProps {
   onVisualizationTypeChange: (type: 'speed' | 'pressure') => void
   onColorSchemeChange: (scheme: 'jet' | 'viridis' | 'plasma' | 'coolwarm') => void
   onOpacityChange: (opacity: number) => void
-  onShowParticlesChange: (show: boolean) => void
-  onParticleDensityChange: (density: number) => void
-  onParticleSizeChange: (size: number) => void
-  onShowParticleTrailsChange: (show: boolean) => void
-  onParticleTrailLengthChange: (length: number) => void
-  onParticlePressureChange: (enabled: boolean) => void
-  onParticleBuoyancyChange: (enabled: boolean) => void
   onShowVectorsChange: (show: boolean) => void
   onGinotPointCloudVisibilityChange?: (show: boolean) => void
   onGinotPointMetricChange?: (metric: 'speed' | 'pressure') => void
@@ -49,13 +35,6 @@ export const VisualizationControls = ({
   visualizationType,
   colorScheme,
   opacity,
-  showParticles,
-  particleDensity,
-  particleSize,
-  showParticleTrails,
-  particleTrailLength,
-  particlePressureEnabled,
-  particleBuoyancyEnabled,
   showVectors,
   hasGinotPointCloud = false,
   showGinotPointCloud = true,
@@ -65,13 +44,6 @@ export const VisualizationControls = ({
   onVisualizationTypeChange,
   onColorSchemeChange,
   onOpacityChange,
-  onShowParticlesChange,
-  onParticleDensityChange,
-  onParticleSizeChange,
-  onShowParticleTrailsChange,
-  onParticleTrailLengthChange,
-  onParticlePressureChange,
-  onParticleBuoyancyChange,
   onShowVectorsChange,
   onGinotPointCloudVisibilityChange,
   onGinotPointMetricChange,
@@ -102,27 +74,6 @@ export const VisualizationControls = ({
       onGinotPointSizeChange?.(Math.round(value * 1000) / 1000)
     },
     [onGinotPointSizeChange],
-  )
-
-  const handleParticleDensityChange = useCallback(
-    (value: number) => {
-      onParticleDensityChange(Math.round(value * 100) / 100)
-    },
-    [onParticleDensityChange],
-  )
-
-  const handleParticleSizeChange = useCallback(
-    (value: number) => {
-      onParticleSizeChange(Math.round(value * 1000) / 1000)
-    },
-    [onParticleSizeChange],
-  )
-
-  const handleParticleTrailLengthChange = useCallback(
-    (value: number) => {
-      onParticleTrailLengthChange(Math.round(value))
-    },
-    [onParticleTrailLengthChange],
   )
 
   return (
@@ -222,68 +173,6 @@ export const VisualizationControls = ({
         precision={2}
       />
 
-      <div className="mt-3 border-t border-border/50 pt-3">
-        <label className="mb-1.5 block text-[10px] font-medium text-muted-foreground">
-          Particle Flow Overlay
-        </label>
-
-        <ToggleControl
-          label="Show Heat Particles"
-          checked={showParticles}
-          onChange={onShowParticlesChange}
-        />
-
-        <SliderControl
-          label="Particle Density"
-          value={particleDensity}
-          onChange={handleParticleDensityChange}
-          min={0.35}
-          max={1.6}
-          step={0.05}
-          precision={2}
-        />
-
-        <SliderControl
-          label="Particle Size"
-          value={particleSize}
-          onChange={handleParticleSizeChange}
-          min={0.015}
-          max={0.08}
-          step={0.0025}
-          precision={3}
-        />
-
-        <ToggleControl
-          label="Show Trails"
-          checked={showParticleTrails}
-          onChange={onShowParticleTrailsChange}
-        />
-
-        {showParticleTrails && (
-          <SliderControl
-            label="Trail Length"
-            value={particleTrailLength}
-            onChange={handleParticleTrailLengthChange}
-            min={4}
-            max={30}
-            step={1}
-            precision={0}
-          />
-        )}
-
-        <ToggleControl
-          label="Pressure Force"
-          checked={particlePressureEnabled}
-          onChange={onParticlePressureChange}
-        />
-
-        <ToggleControl
-          label="Buoyancy Force"
-          checked={particleBuoyancyEnabled}
-          onChange={onParticleBuoyancyChange}
-        />
-      </div>
-
       <ToggleControl
         label="Show Velocity Vectors (Debug)"
         checked={showVectors}
@@ -293,18 +182,18 @@ export const VisualizationControls = ({
       {hasGinotPointCloud && (
         <div className="mt-3 border-t border-border/50 pt-3">
           <label className="mb-1.5 block text-[10px] font-medium text-muted-foreground">
-            GINOT Overlay
+            Backend Particles
           </label>
 
           <ToggleControl
-            label="Show Point Cloud"
+            label="Show Backend Particles"
             checked={showGinotPointCloud}
             onChange={(checked) => onGinotPointCloudVisibilityChange?.(checked)}
           />
 
           <div className="mb-3">
             <label className="mb-1.5 block text-[10px] font-medium text-muted-foreground">
-              Point Metric
+              Particle Metric
             </label>
             <div className="grid grid-cols-2 gap-1">
               {(['speed', 'pressure'] as const).map((metric) => (
@@ -325,7 +214,7 @@ export const VisualizationControls = ({
           </div>
 
           <SliderControl
-            label="Point Size"
+            label="Particle Size"
             value={ginotPointSize}
             onChange={handleGinotSizeChange}
             min={0.02}
@@ -335,7 +224,7 @@ export const VisualizationControls = ({
           />
 
           <SliderControl
-            label="Point Opacity"
+            label="Particle Opacity"
             value={ginotPointOpacity}
             onChange={handleGinotOpacityChange}
             min={0.1}

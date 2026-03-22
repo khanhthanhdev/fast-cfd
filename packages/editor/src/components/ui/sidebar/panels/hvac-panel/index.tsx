@@ -40,13 +40,6 @@ export function HVACPanel() {
     ginotPointMetric,
     ginotPointSize,
     ginotPointOpacity,
-    showParticles,
-    particleDensity,
-    particleSize,
-    showParticleTrails,
-    particleTrailLength,
-    particlePressureEnabled,
-    particleBuoyancyEnabled,
     heatmapVisible,
     activeHeatmapNode,
     handleRunAnalysis,
@@ -60,13 +53,6 @@ export function HVACPanel() {
     handleGinotPointMetricChange,
     handleGinotPointSizeChange,
     handleGinotPointOpacityChange,
-    handleShowParticlesChange,
-    handleParticleDensityChange,
-    handleParticleSizeChange,
-    handleParticleTrailsChange,
-    handleParticleTrailLengthChange,
-    handleParticlePressureChange,
-    handleParticleBuoyancyChange,
     toggleHeatmap,
   } = useHVACAnalysis()
 
@@ -145,13 +131,6 @@ export function HVACPanel() {
               colorScheme={colorScheme}
               has3DData={has3DData}
               opacity={opacity}
-              showParticles={showParticles}
-              particleDensity={particleDensity}
-              particleSize={particleSize}
-              showParticleTrails={showParticleTrails}
-              particleTrailLength={particleTrailLength}
-              particlePressureEnabled={particlePressureEnabled}
-              particleBuoyancyEnabled={particleBuoyancyEnabled}
               renderMode={renderMode}
               showVectors={showVectors}
               hasGinotPointCloud={hasGinotPointCloud}
@@ -167,13 +146,6 @@ export function HVACPanel() {
               onGinotPointSizeChange={handleGinotPointSizeChange}
               onGinotPointOpacityChange={handleGinotPointOpacityChange}
               onOpacityChange={handleOpacityChange}
-              onShowParticlesChange={handleShowParticlesChange}
-              onParticleDensityChange={handleParticleDensityChange}
-              onParticleSizeChange={handleParticleSizeChange}
-              onShowParticleTrailsChange={handleParticleTrailsChange}
-              onParticleTrailLengthChange={handleParticleTrailLengthChange}
-              onParticlePressureChange={handleParticlePressureChange}
-              onParticleBuoyancyChange={handleParticleBuoyancyChange}
               onRenderModeChange={handleRenderModeChange}
               onShowVectorsChange={setShowVectors}
               onSlicePositionChange={handleSlicePositionChange}
@@ -187,8 +159,8 @@ export function HVACPanel() {
                   max={thermalLegend.max}
                   unit="°C"
                   colorScheme={colorScheme}
-                  label="Particle Temperature"
-                  note="Particles leave supply diffusers with supply-air temperature, mix through the room, and disappear into return collectors."
+                  label="Air Temperature"
+                  note="Temperature field interpolated across the room volume."
                 />
               </div>
             )}

@@ -11,7 +11,7 @@ import { RoofPanel } from './roof-panel'
 import { SlabPanel } from './slab-panel'
 import { WallPanel } from './wall-panel'
 import { WindowPanel } from './window-panel'
-import { DiffuserToolPanel } from '../../panels/diffuser-tool-panel'
+// DiffuserToolPanel temporarily removed
 
 export function PanelManager() {
   const selectedIds = useViewer((s) => s.selection.selectedIds)
@@ -19,10 +19,10 @@ export function PanelManager() {
   const tool = useEditor((s) => s.tool)
   const nodes = useScene((s) => s.nodes)
 
-  // Show Diffuser tool panel when Diffuser tool is active
-  if (tool === 'diffuser') {
-    return <DiffuserToolPanel />
-  }
+  // Diffuser panel temporarily removed
+  // if (tool === 'diffuser') {
+  //   return <DiffuserToolPanel />
+  // }
 
   // Show reference panel if a reference is selected
   if (selectedReferenceId) {

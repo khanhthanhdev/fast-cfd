@@ -58,9 +58,7 @@ export const useSidebarStore = create<SidebarStore>()(
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed'
   open: boolean
-  setOpen: (open: boolean) => void
-  openMobile: boolean
-  setOpenMobile: (open: boolean) => void
+  setOpen: (open: boolean | ((open: boolean) => boolean)) => void
   isMobile: boolean
   toggleSidebar: () => void
 }
@@ -90,7 +88,6 @@ function SidebarProvider({
   onOpenChange?: (open: boolean) => void
 }) {
   const isMobile = useIsMobile()
-  const [openMobile, setOpenMobile] = React.useState(false)
   const sidebarWidth = useSidebarStore((state) => state.width)
   const isDragging = useSidebarStore((state) => state.isDragging)
 
@@ -114,10 +111,7 @@ function SidebarProvider({
   )
 
   // Helper to toggle the sidebar.
-  const toggleSidebar = React.useCallback(
-    () => (isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)),
-    [isMobile, setOpen],
-  )
+  const toggleSidebar = React.useCallback(() => setOpen((currentOpen) => !currentOpen), [setOpen])
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -142,11 +136,9 @@ function SidebarProvider({
       open,
       setOpen,
       isMobile,
-      openMobile,
-      setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, toggleSidebar],
+    [state, open, setOpen, isMobile, toggleSidebar],
   )
 
   return (
@@ -233,7 +225,7 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset'
   collapsible?: 'offcanvas' | 'icon' | 'none'
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, open, setOpen } = useSidebar()
 
   if (collapsible === 'none') {
     return (
@@ -252,7 +244,7 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet onOpenChange={setOpenMobile} open={openMobile} {...props}>
+      <Sheet onOpenChange={setOpen} open={open} {...props}>
         <SheetContent
           className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
           data-mobile="true"

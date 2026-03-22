@@ -1,11 +1,9 @@
 import {
   diffuseHeat,
-  ParticleSystemNode as ParticleSystemNodeSchema,
   useRegistry,
   useScene,
   type HeatmapNode,
   type LevelNode,
-  type ParticleSystemNodeType,
   type ZoneNode,
 } from '@pascal-app/core'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -31,8 +29,6 @@ import { useViewerStore } from '../../../store/use-viewer'
 import { GinotPointCloud } from './ginot-point-cloud'
 import { VelocityVectors } from './velocity-vectors'
 import { colorMaps } from '../../../lib/color-maps'
-import { ParticleFlowRenderer } from '../particles/particle-flow-renderer'
-import { generateFallbackParticleSystem } from '../../../lib/particle-system-fallback'
 
 interface Heatmap3DRendererProps {
   node: HeatmapNode
@@ -157,17 +153,15 @@ function getBounds(values: number[], fallbackMin: number, fallbackMax: number) {
   return { min, max }
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function getHeatmapScalarMode(node: HeatmapNode): 'temperature' | 'velocity' | 'none' {
+function getHeatmapScalarMode(
+  node: HeatmapNode,
+): 'temperature' | 'velocity' | 'pressure' | 'none' {
   switch (node.visualizationType) {
     case 'velocity':
     case 'speed':
       return 'velocity'
     case 'pressure':
-      return 'none'
+      return 'pressure'
     default:
       return 'temperature'
   }
@@ -191,13 +185,6 @@ export const Heatmap3DRenderer = ({
   const ginotPointMetric = useViewerStore((state) => state.ginotPointMetric)
   const ginotPointSize = useViewerStore((state) => state.ginotPointSize)
   const ginotPointOpacity = useViewerStore((state) => state.ginotPointOpacity)
-  const showHeatParticles = useViewerStore((state) => state.showHeatParticles)
-  const particleDensity = useViewerStore((state) => state.particleDensity)
-  const particleSize = useViewerStore((state) => state.particleSize)
-  const showParticleTrails = useViewerStore((state) => state.showParticleTrails)
-  const particleTrailLength = useViewerStore((state) => state.particleTrailLength)
-  const particlePressureEnabled = useViewerStore((state) => state.particlePressureEnabled)
-  const particleBuoyancyEnabled = useViewerStore((state) => state.particleBuoyancyEnabled)
 
   useRegistry(node.id, 'heatmap', ref)
 
@@ -242,7 +229,6 @@ export const Heatmap3DRenderer = ({
       gridSize,
       verticalLevels,
     ]
-    const activeHeatAmbient = overlayParticleSystem?.ambientTemperature ?? ambientTemperature
 
     if (!grid3DRef.current) {
       grid3DRef.current = Array.from({ length: verticalLevels }, (_, levelIndex) =>
@@ -258,7 +244,7 @@ export const Heatmap3DRenderer = ({
       activeHeatCellIndicesRef.current = createActiveHeatCellSet(
         grid3DRef.current,
         fieldGridResolution,
-        activeHeatAmbient,
+        ambientTemperature,
       )
     }
 
@@ -287,7 +273,7 @@ export const Heatmap3DRenderer = ({
         for (let i = 0; i < gridSize; i++) {
           const value = grid3DRef.current[k]?.[j]?.[i] ?? ambientTemperature
 
-          if (Math.abs(value - activeHeatAmbient) > 1e-3) {
+          if (Math.abs(value - ambientTemperature) > 1e-3) {
             activeHeatCellIndicesRef.current?.add(
               getHeatGridCellIndex(i, k, j, fieldGridResolution),
             )
@@ -314,67 +300,60 @@ export const Heatmap3DRenderer = ({
   const scalarMode = useMemo(() => getHeatmapScalarMode(node), [node])
   const hasTemperature2D = node.data.temperatureGrid.length > 0
   const hasVelocity2D = node.data.velocityGrid.length > 0
+  const hasPressure2D = !!node.data.pressureGrid?.length
   const hasTemperature3D = !!node.data.temperatureGrid3D?.length
   const hasVelocity3D = !!node.data.velocityGrid3D?.length
+  const hasPressure3D = !!node.data.pressureGrid3D?.length
   const hasGinotPoints = !!node.data.ginotPointCloud?.length
-  const storedParticleSystem = useMemo<ParticleSystemNodeType | null>(() => {
-    const metadata = node.metadata as Record<string, unknown> | undefined
-    const particleSystem = metadata?.particleSystem
-
-    if (particleSystem) {
-      const parsed = ParticleSystemNodeSchema.safeParse(particleSystem)
-      if (parsed.success) return parsed.data
-    }
-
-    // Fallback: auto-generate particle system from heatmap data
-    return generateFallbackParticleSystem(node, roomBounds, roomHeight)
-  }, [node, roomBounds, roomHeight])
 
   const hasRenderable2DData =
     scalarMode === 'temperature'
       ? hasTemperature2D
       : scalarMode === 'velocity'
         ? hasVelocity2D
-        : false
+        : scalarMode === 'pressure'
+          ? hasPressure2D
+          : false
 
   const hasRenderable3DData =
     scalarMode === 'temperature'
       ? hasTemperature3D
       : scalarMode === 'velocity'
         ? hasVelocity3D
-        : false
+        : scalarMode === 'pressure'
+          ? hasPressure3D
+          : false
 
   const selected2DGrid = useMemo(() => {
     if (scalarMode === 'velocity') {
       return node.data.velocityGrid
     }
+    if (scalarMode === 'pressure') {
+      return node.data.pressureGrid ?? []
+    }
     if (scalarMode === 'temperature') {
       return node.data.temperatureGrid
     }
     return []
-  }, [node.data.temperatureGrid, node.data.velocityGrid, scalarMode])
+  }, [node.data.pressureGrid, node.data.temperatureGrid, node.data.velocityGrid, scalarMode])
 
   const selected3DGrid = useMemo(() => {
     if (scalarMode === 'velocity') {
       return node.data.velocityGrid3D ?? []
     }
+    if (scalarMode === 'pressure') {
+      return node.data.pressureGrid3D ?? []
+    }
     if (scalarMode === 'temperature') {
       return node.data.temperatureGrid3D ?? []
     }
     return []
-  }, [node.data.temperatureGrid3D, node.data.velocityGrid3D, scalarMode])
-
-  const thermalDataBounds = useMemo(() => {
-    void heatVersion
-    const fallback = {
-      min: node.data.averageTemperature - 4,
-      max: node.data.averageTemperature + 4,
-    }
-    const values = node.data.temperatureGrid3D?.length
-      ? node.data.temperatureGrid3D.flat(2)
-      : node.data.temperatureGrid.flat()
-    return getBounds(values, fallback.min, fallback.max)
-  }, [heatVersion, node.data.averageTemperature, node.data.temperatureGrid, node.data.temperatureGrid3D])
+  }, [
+    node.data.pressureGrid3D,
+    node.data.temperatureGrid3D,
+    node.data.velocityGrid3D,
+    scalarMode,
+  ])
 
   const dataBounds = useMemo(() => {
     void heatVersion
@@ -404,43 +383,6 @@ export const Heatmap3DRenderer = ({
     renderMode,
     selected2DGrid,
     selected3DGrid,
-  ])
-
-  const overlayParticleSystem = useMemo<ParticleSystemNodeType | null>(() => {
-    if (!storedParticleSystem) return null
-
-    return {
-      ...storedParticleSystem,
-      particleCount: clamp(
-        Math.round(storedParticleSystem.particleCount * particleDensity),
-        400,
-        5000,
-      ),
-      particleSize,
-      showTrails: showParticleTrails,
-      trailLength: particleTrailLength,
-      colorScheme: node.colorScheme,
-      particleOpacity: clamp(0.55 + (node.opacity ?? 0.7) * 0.35, 0.45, 0.9),
-      temperatureRange: [thermalDataBounds.min, thermalDataBounds.max],
-      enablePressure: particlePressureEnabled,
-      enableBuoyancy: particleBuoyancyEnabled,
-      debugShowVectors: showVectors,
-      enabled: storedParticleSystem.enabled && showHeatParticles,
-    }
-  }, [
-    node.colorScheme,
-    node.opacity,
-    particleBuoyancyEnabled,
-    particleDensity,
-    particlePressureEnabled,
-    particleSize,
-    particleTrailLength,
-    showHeatParticles,
-    showParticleTrails,
-    showVectors,
-    storedParticleSystem,
-    thermalDataBounds.max,
-    thermalDataBounds.min,
   ])
 
   const gridData2D = useMemo<GridData | null>(() => {
@@ -762,7 +704,6 @@ export const Heatmap3DRenderer = ({
     renderMode === '3d-volume' ? horizontalSlices.length > 0 : !!singlePlaneMaterial
   const shouldRenderHeatmapSurface = showHeatmap && canRenderHeatmapSurface
   const shouldRenderVectors = showVectors && (hasRenderable2DData || hasRenderable3DData)
-  const shouldShareHeatGrid = node.heatDiffusionEnabled && !!node.data.temperatureGrid3D?.length
 
   return (
     <group ref={ref} {...handlers}>
@@ -813,20 +754,6 @@ export const Heatmap3DRenderer = ({
           material={singlePlaneMaterial}
           position={[centerX, singlePlaneY, centerZ]}
           rotation={[-Math.PI / 2, 0, 0]}
-        />
-      )}
-
-      {overlayParticleSystem && (
-        <ParticleFlowRenderer
-          node={overlayParticleSystem}
-          roomBounds={{
-            min: [roomBounds.minX, 0, roomBounds.minZ],
-            max: [roomBounds.maxX, roomHeight, roomBounds.maxZ],
-          }}
-          sharedHeatGridRef={shouldShareHeatGrid ? grid3DRef : undefined}
-          sharedActiveHeatCellIndicesRef={
-            shouldShareHeatGrid ? activeHeatCellIndicesRef : undefined
-          }
         />
       )}
 

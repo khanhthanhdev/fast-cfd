@@ -15,9 +15,9 @@ import {
   getPrimaryDiffuser,
 } from '../lib/hvac/diffuser-detector'
 import {
-  buildParticleSystemNodeConfig,
   exportSceneToStlBlob,
   buildDiffuserInput,
+  buildGinotHeatmapGrids,
   getValidDiffusersForInference,
   validateDiffuserSet,
 } from '../lib/hvac'
@@ -77,13 +77,6 @@ export interface HVACAnalysisResult {
   ginotPointMetric: 'speed' | 'pressure'
   ginotPointSize: number
   ginotPointOpacity: number
-  showParticles: boolean
-  particleDensity: number
-  particleSize: number
-  showParticleTrails: boolean
-  particleTrailLength: number
-  particlePressureEnabled: boolean
-  particleBuoyancyEnabled: boolean
   heatmapVisible: boolean
   activeHeatmapNode: HeatmapNodeValue | null
   handleRunAnalysis: () => Promise<void>
@@ -97,14 +90,18 @@ export interface HVACAnalysisResult {
   handleGinotPointMetricChange: (metric: 'speed' | 'pressure') => void
   handleGinotPointSizeChange: (size: number) => void
   handleGinotPointOpacityChange: (nextOpacity: number) => void
-  handleShowParticlesChange: (show: boolean) => void
-  handleParticleDensityChange: (density: number) => void
-  handleParticleSizeChange: (size: number) => void
-  handleParticleTrailsChange: (show: boolean) => void
-  handleParticleTrailLengthChange: (length: number) => void
-  handleParticlePressureChange: (enabled: boolean) => void
-  handleParticleBuoyancyChange: (enabled: boolean) => void
   toggleHeatmap: () => void
+}
+
+function stripParticleSystemMetadata(
+  metadata?: HeatmapNodeValue['metadata'],
+): HeatmapNodeValue['metadata'] | undefined {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined
+  }
+
+  const { particleSystem: _particleSystem, ...rest } = metadata as Record<string, unknown>
+  return Object.keys(rest).length > 0 ? (rest as HeatmapNodeValue['metadata']) : undefined
 }
 
 /**
@@ -136,20 +133,6 @@ export function useHVACAnalysis(): HVACAnalysisResult {
   const setGinotPointSize = useViewer((state) => state.setGinotPointSize)
   const ginotPointOpacity = useViewer((state) => state.ginotPointOpacity)
   const setGinotPointOpacity = useViewer((state) => state.setGinotPointOpacity)
-  const showParticles = useViewer((state) => state.showHeatParticles)
-  const setShowParticles = useViewer((state) => state.setShowHeatParticles)
-  const particleDensity = useViewer((state) => state.particleDensity)
-  const setParticleDensity = useViewer((state) => state.setParticleDensity)
-  const particleSize = useViewer((state) => state.particleSize)
-  const setParticleSize = useViewer((state) => state.setParticleSize)
-  const showParticleTrails = useViewer((state) => state.showParticleTrails)
-  const setShowParticleTrails = useViewer((state) => state.setShowParticleTrails)
-  const particleTrailLength = useViewer((state) => state.particleTrailLength)
-  const setParticleTrailLength = useViewer((state) => state.setParticleTrailLength)
-  const particlePressureEnabled = useViewer((state) => state.particlePressureEnabled)
-  const setParticlePressureEnabled = useViewer((state) => state.setParticlePressureEnabled)
-  const particleBuoyancyEnabled = useViewer((state) => state.particleBuoyancyEnabled)
-  const setParticleBuoyancyEnabled = useViewer((state) => state.setParticleBuoyancyEnabled)
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -187,8 +170,9 @@ export function useHVACAnalysis(): HVACAnalysisResult {
   const has3DData = useMemo(() => {
     if (!activeHeatmapNode) return false
     return (
-      !!activeHeatmapNode.data.temperatureGrid3D?.length &&
-      !!activeHeatmapNode.data.velocityGrid3D?.length
+      !!activeHeatmapNode.data.temperatureGrid3D?.length ||
+      !!activeHeatmapNode.data.velocityGrid3D?.length ||
+      !!activeHeatmapNode.data.pressureGrid3D?.length
     )
   }, [activeHeatmapNode])
 
@@ -272,24 +256,7 @@ export function useHVACAnalysis(): HVACAnalysisResult {
         diffusers = allDiffusers
       }
 
-      const supplyDiffusers = diffusers.filter((d) => d.type === 'supply')
-      const returnDiffusers = diffusers.filter((d) => d.type !== 'supply')
       const roomBounds = getRoomBounds(zoneNode as ZoneNode, levelNode as LevelNode)
-
-      const createParticleSystemConfig = (heatmapNodeId: string | null) =>
-        buildParticleSystemNodeConfig({
-          levelId: levelNode.id,
-          zoneId: zoneNode.id,
-          heatmapNodeId,
-          supplyDiffusers,
-          returnDiffusers,
-          roomBounds,
-          ambientTemperature:
-            (boundaryConditions.supplyAirTemp + boundaryConditions.outdoorTemp) / 2,
-          supplyTemperature: boundaryConditions.supplyAirTemp,
-          airflowRate: boundaryConditions.airflowRate,
-          colorScheme,
-        })
 
       const threeScene = useViewer.getState().threeScene
       if (!threeScene) {
@@ -349,14 +316,21 @@ export function useHVACAnalysis(): HVACAnalysisResult {
         pressure: ginotResponse.pressure[index] ?? 0,
         speed: ginotResponse.speed[index] ?? 0,
       }))
+      const ginotHeatmapGrids = buildGinotHeatmapGrids(ginotResponse, roomBounds, {
+        gridSize: 20,
+        verticalLevels: 25,
+      })
 
       const heatmapData = {
-        gridSize: 20,
+        gridSize: ginotHeatmapGrids.gridSize,
         temperatureGrid: [],
-        velocityGrid: [],
+        velocityGrid: ginotHeatmapGrids.velocityGrid,
+        velocityDirection: ginotHeatmapGrids.velocityDirection,
+        pressureGrid: ginotHeatmapGrids.pressureGrid,
         temperatureGrid3D: undefined,
-        velocityGrid3D: undefined,
-        velocityGrid3DDirection: undefined,
+        velocityGrid3D: ginotHeatmapGrids.velocityGrid3D,
+        velocityGrid3DDirection: ginotHeatmapGrids.velocityGrid3DDirection,
+        pressureGrid3D: ginotHeatmapGrids.pressureGrid3D,
         heightOffsets: undefined,
         ginotPointCloud: pointCloudData,
         speedField: [...ginotResponse.speed],
@@ -364,7 +338,7 @@ export function useHVACAnalysis(): HVACAnalysisResult {
         averageTemperature: 0,
         pmv: 0,
         comfortScore: 0,
-        verticalLevels: 25,
+        verticalLevels: ginotHeatmapGrids.verticalLevels,
       }
 
       let heatmapId = activeHeatmapId
@@ -373,7 +347,7 @@ export function useHVACAnalysis(): HVACAnalysisResult {
         const currentNode = useScene.getState().nodes[heatmapId as keyof typeof nodes]
         const existingHeatmapNode =
           currentNode?.type === 'heatmap' ? (currentNode as HeatmapNodeValue) : null
-        const particleSystem = createParticleSystemConfig(heatmapId)
+        const cleanedMetadata = stripParticleSystemMetadata(existingHeatmapNode?.metadata)
 
         useScene.getState().updateNode(heatmapId as any, {
           data: heatmapData,
@@ -383,10 +357,7 @@ export function useHVACAnalysis(): HVACAnalysisResult {
           colorScheme,
           opacity,
           heatDiffusionEnabled: false,
-          metadata: {
-            ...((existingHeatmapNode?.metadata as Record<string, unknown> | undefined) ?? {}),
-            particleSystem,
-          },
+          metadata: cleanedMetadata ?? {},
         })
       } else {
         const heatmapNode = HeatmapNode.parse({
@@ -401,22 +372,14 @@ export function useHVACAnalysis(): HVACAnalysisResult {
           opacity,
           heatDiffusionEnabled: false,
         })
-        const particleSystem = createParticleSystemConfig(heatmapNode.id)
-        const nextHeatmapNode = {
-          ...heatmapNode,
-          metadata: {
-            ...((heatmapNode.metadata as Record<string, unknown> | undefined) ?? {}),
-            particleSystem,
-          },
-        }
-
-        createNode(nextHeatmapNode, levelNode.id as any)
-        heatmapId = nextHeatmapNode.id
+        createNode(heatmapNode, levelNode.id as any)
+        heatmapId = heatmapNode.id
         setActiveHeatmapId(heatmapId)
 
-        useScene.getState().dirtyNodes.add(nextHeatmapNode.id)
+        useScene.getState().dirtyNodes.add(heatmapNode.id)
       }
 
+      setShowHeatmap(true)
       setShowGinotPointCloud(true)
       setGinotPointMetric(visualizationType)
 
@@ -456,6 +419,7 @@ export function useHVACAnalysis(): HVACAnalysisResult {
     visualizationType,
     colorScheme,
     opacity,
+    setShowHeatmap,
     setShowGinotPointCloud,
     setGinotPointMetric,
   ])
@@ -506,34 +470,6 @@ export function useHVACAnalysis(): HVACAnalysisResult {
     setGinotPointOpacity(Math.round(nextOpacity * 100) / 100)
   }, [setGinotPointOpacity])
 
-  const handleShowParticlesChange = useCallback((show: boolean) => {
-    setShowParticles(show)
-  }, [setShowParticles])
-
-  const handleParticleDensityChange = useCallback((density: number) => {
-    setParticleDensity(Math.round(density * 100) / 100)
-  }, [setParticleDensity])
-
-  const handleParticleSizeChange = useCallback((size: number) => {
-    setParticleSize(Math.round(size * 1000) / 1000)
-  }, [setParticleSize])
-
-  const handleParticleTrailsChange = useCallback((show: boolean) => {
-    setShowParticleTrails(show)
-  }, [setShowParticleTrails])
-
-  const handleParticleTrailLengthChange = useCallback((length: number) => {
-    setParticleTrailLength(Math.round(length))
-  }, [setParticleTrailLength])
-
-  const handleParticlePressureChange = useCallback((enabled: boolean) => {
-    setParticlePressureEnabled(enabled)
-  }, [setParticlePressureEnabled])
-
-  const handleParticleBuoyancyChange = useCallback((enabled: boolean) => {
-    setParticleBuoyancyEnabled(enabled)
-  }, [setParticleBuoyancyEnabled])
-
   const toggleHeatmap = useCallback(() => {
     setShowHeatmap(!showHeatmap)
   }, [showHeatmap, setShowHeatmap])
@@ -561,13 +497,6 @@ export function useHVACAnalysis(): HVACAnalysisResult {
     ginotPointMetric,
     ginotPointSize,
     ginotPointOpacity,
-    showParticles,
-    particleDensity,
-    particleSize,
-    showParticleTrails,
-    particleTrailLength,
-    particlePressureEnabled,
-    particleBuoyancyEnabled,
     heatmapVisible: showHeatmap,
     activeHeatmapNode,
     handleRunAnalysis,
@@ -581,13 +510,6 @@ export function useHVACAnalysis(): HVACAnalysisResult {
     handleGinotPointMetricChange,
     handleGinotPointSizeChange,
     handleGinotPointOpacityChange,
-    handleShowParticlesChange,
-    handleParticleDensityChange,
-    handleParticleSizeChange,
-    handleParticleTrailsChange,
-    handleParticleTrailLengthChange,
-    handleParticlePressureChange,
-    handleParticleBuoyancyChange,
     toggleHeatmap,
   }
 }
