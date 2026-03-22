@@ -1,5 +1,10 @@
 import { createMockBoxRoom, type RoomGeometrySnapshot } from './room-geometry-snapshot'
-import { sampleBoundary, sampleInterior } from './point-sampler'
+import {
+  DEFAULT_GINOT_BOUNDARY_POINT_COUNT,
+  DEFAULT_GINOT_INTERIOR_POINT_COUNT,
+  sampleBoundary,
+  sampleInterior,
+} from './point-sampler'
 import { normalizePoints, normalizeLoadVector } from './normalization'
 import type { GinotInferenceResponse } from '../hvac/ai-inference-client'
 
@@ -114,8 +119,8 @@ export function generateMockGinotResponse(
   xyt: Float32Array
   response: GinotInferenceResponse
 } {
-  const boundaryCount = options?.boundaryCount ?? 100000
-  const interiorCount = options?.interiorCount ?? 50000
+  const boundaryCount = options?.boundaryCount ?? DEFAULT_GINOT_BOUNDARY_POINT_COUNT
+  const interiorCount = options?.interiorCount ?? DEFAULT_GINOT_INTERIOR_POINT_COUNT
 
   const { center, scale, bounds } = geometry
 

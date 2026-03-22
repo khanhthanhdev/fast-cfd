@@ -201,9 +201,15 @@ export function SettingsPanel({
 
   const isLocalProject = false // Props-based; only show cloud sections when projectId provided
 
-  const handleExport = async () => {
+  const handleExportGLB = async () => {
     if (exportScene) {
-      await exportScene()
+      await exportScene('glb')
+    }
+  }
+
+  const handleExportSTL = async () => {
+    if (exportScene) {
+      await exportScene('stl')
     }
   }
 
@@ -317,9 +323,13 @@ export function SettingsPanel({
       {/* Export Section */}
       <div className="space-y-2">
         <label className="font-medium text-muted-foreground text-xs uppercase">Export</label>
-        <Button className="w-full justify-start gap-2" onClick={handleExport} variant="outline">
+        <Button className="w-full justify-start gap-2" onClick={handleExportGLB} variant="outline">
           <Download className="size-4" />
-          Export 3D Model
+          Export 3D Model (GLB)
+        </Button>
+        <Button className="w-full justify-start gap-2" onClick={handleExportSTL} variant="outline">
+          <Download className="size-4" />
+          Export 3D Model (STL)
         </Button>
       </div>
 

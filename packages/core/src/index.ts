@@ -34,6 +34,11 @@ export {
 export { useSpatialQuery } from './hooks/spatial-grid/use-spatial-query'
 // Asset storage
 export { loadAssetUrl, saveAsset } from './lib/asset-storage'
+export {
+  sanitizeSceneGraphForPersistence,
+  sanitizeSceneNodesForPersistence,
+  sanitizeSceneStateForPersistence,
+} from './lib/scene-persistence'
 // Space detection
 export {
   detectSpacesForLevel,

@@ -1,12 +1,11 @@
 'use client'
 
+import { useMemo } from 'react'
 import useEditor from '../../store/use-editor'
 import { HVACConfigPanel } from './hvac-config-panel'
-import { ScenarioComparisonPanel } from './scenario-comparison-panel'
-import { ComfortKPIDisplay, ExportReportButton } from '../ui/hvac'
+import { HeatmapLegend } from '../ui/hvac'
 import { VisualizationControls } from '../ui/hvac/visualization-controls'
 import { PanelWrapper } from '../ui/panels/panel-wrapper'
-import { PanelSection } from '../ui/controls/panel-section'
 import { useHVACRoomSelection } from '../../hooks/use-hvac-room-selection'
 import { useHVACAnalysis } from '../../hooks/use-hvac-analysis'
 
@@ -31,7 +30,6 @@ export const HVACToolPanel = () => {
     activeHeatmapId,
     boundaryConditions,
     setBoundaryConditions,
-    currentScenario,
     visualizationType,
     colorScheme,
     opacity,
@@ -39,6 +37,19 @@ export const HVACToolPanel = () => {
     renderMode,
     slicePosition,
     has3DData,
+    hasGinotPointCloud,
+    showGinotPointCloud,
+    ginotPointMetric,
+    ginotPointSize,
+    ginotPointOpacity,
+    showParticles,
+    particleDensity,
+    particleSize,
+    showParticleTrails,
+    particleTrailLength,
+    particlePressureEnabled,
+    particleBuoyancyEnabled,
+    activeHeatmapNode,
     handleRunAnalysis,
     handleVisualizationTypeChange,
     handleColorSchemeChange,
@@ -46,7 +57,33 @@ export const HVACToolPanel = () => {
     setShowVectors,
     handleRenderModeChange,
     handleSlicePositionChange,
+    handleGinotPointCloudVisibilityChange,
+    handleGinotPointMetricChange,
+    handleGinotPointSizeChange,
+    handleGinotPointOpacityChange,
+    handleShowParticlesChange,
+    handleParticleDensityChange,
+    handleParticleSizeChange,
+    handleParticleTrailsChange,
+    handleParticleTrailLengthChange,
+    handleParticlePressureChange,
+    handleParticleBuoyancyChange,
   } = useHVACAnalysis()
+
+  const thermalLegend = useMemo(() => {
+    const values = activeHeatmapNode?.data.temperatureGrid3D?.flat(2)
+      ?? activeHeatmapNode?.data.temperatureGrid.flat()
+      ?? []
+
+    if (values.length === 0) {
+      return null
+    }
+
+    return {
+      min: Math.min(...values),
+      max: Math.max(...values),
+    }
+  }, [activeHeatmapNode])
 
   if (tool !== 'hvac') {
     return null
@@ -74,43 +111,62 @@ export const HVACToolPanel = () => {
         </div>
       )}
 
-      {/* Comfort KPIs */}
-      {currentScenario?.results && (
-        <PanelSection title="Comfort KPIs">
-          <ComfortKPIDisplay
-            pmv={currentScenario.results.pmv}
-            comfortScore={currentScenario.results.comfortScore}
-            averageTemperature={currentScenario.results.averageTemperature}
-          />
-        </PanelSection>
-      )}
-
       {/* Visualization Controls */}
       {activeHeatmapId && (
-        <VisualizationControls
-          visualizationType={visualizationType}
-          colorScheme={colorScheme}
-          opacity={opacity}
-          showVectors={showVectors}
-          onVisualizationTypeChange={handleVisualizationTypeChange}
-          onColorSchemeChange={handleColorSchemeChange}
-          onOpacityChange={handleOpacityChange}
-          onShowVectorsChange={setShowVectors}
-          renderMode={renderMode}
-          slicePosition={slicePosition}
-          onRenderModeChange={handleRenderModeChange}
-          onSlicePositionChange={handleSlicePositionChange}
-          has3DData={has3DData}
-        />
+        <>
+          <VisualizationControls
+            visualizationType={visualizationType}
+            colorScheme={colorScheme}
+            opacity={opacity}
+            showParticles={showParticles}
+            particleDensity={particleDensity}
+            particleSize={particleSize}
+            showParticleTrails={showParticleTrails}
+            particleTrailLength={particleTrailLength}
+            particlePressureEnabled={particlePressureEnabled}
+            particleBuoyancyEnabled={particleBuoyancyEnabled}
+            showVectors={showVectors}
+            hasGinotPointCloud={hasGinotPointCloud}
+            showGinotPointCloud={showGinotPointCloud}
+            ginotPointMetric={ginotPointMetric}
+            ginotPointSize={ginotPointSize}
+            ginotPointOpacity={ginotPointOpacity}
+            onVisualizationTypeChange={handleVisualizationTypeChange}
+            onColorSchemeChange={handleColorSchemeChange}
+            onOpacityChange={handleOpacityChange}
+            onShowParticlesChange={handleShowParticlesChange}
+            onParticleDensityChange={handleParticleDensityChange}
+            onParticleSizeChange={handleParticleSizeChange}
+            onShowParticleTrailsChange={handleParticleTrailsChange}
+            onParticleTrailLengthChange={handleParticleTrailLengthChange}
+            onParticlePressureChange={handleParticlePressureChange}
+            onParticleBuoyancyChange={handleParticleBuoyancyChange}
+            onShowVectorsChange={setShowVectors}
+            onGinotPointCloudVisibilityChange={handleGinotPointCloudVisibilityChange}
+            onGinotPointMetricChange={handleGinotPointMetricChange}
+            onGinotPointSizeChange={handleGinotPointSizeChange}
+            onGinotPointOpacityChange={handleGinotPointOpacityChange}
+            renderMode={renderMode}
+            slicePosition={slicePosition}
+            onRenderModeChange={handleRenderModeChange}
+            onSlicePositionChange={handleSlicePositionChange}
+            has3DData={has3DData}
+          />
+
+          {thermalLegend && (
+            <div className="px-3 pb-3">
+              <HeatmapLegend
+                min={thermalLegend.min}
+                max={thermalLegend.max}
+                unit="°C"
+                colorScheme={colorScheme}
+                label="Particle Temperature"
+                note="Supply particles carry thermal state through the room and disappear into return collectors."
+              />
+            </div>
+          )}
+        </>
       )}
-
-      {/* Scenario Comparison */}
-      <ScenarioComparisonPanel />
-
-      {/* Export Report */}
-      <div className="border-t border-border/50 px-3 py-3">
-        <ExportReportButton projectName="HVAC Analysis" />
-      </div>
     </PanelWrapper>
   )
 }

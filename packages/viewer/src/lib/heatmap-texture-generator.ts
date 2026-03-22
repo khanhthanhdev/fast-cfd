@@ -11,7 +11,7 @@ export interface GridData {
  * 3D grid data for volumetric heatmaps
  */
 export interface GridData3D {
-  values: number[][][] // [z][y][x]
+  values: number[][][] // [verticalLevel][row][col]
   min: number
   max: number
   verticalLevels: number

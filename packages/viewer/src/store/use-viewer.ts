@@ -1,7 +1,7 @@
 'use client'
 
 import type { AnyNode, BaseNode, BuildingNode, LevelNode, ZoneNode } from '@pascal-app/core'
-import type { Object3D } from 'three'
+import type { Object3D, Scene } from 'three'
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -45,8 +45,32 @@ type ViewerState = {
   setShowGrid: (show: boolean) => void
 
   // HVAC visualization
+  showHeatmap: boolean
+  setShowHeatmap: (show: boolean) => void
   showHeatmapVectors: boolean
   setShowHeatmapVectors: (show: boolean) => void
+  showGinotPointCloud: boolean
+  setShowGinotPointCloud: (show: boolean) => void
+  ginotPointMetric: 'speed' | 'pressure'
+  setGinotPointMetric: (metric: 'speed' | 'pressure') => void
+  ginotPointSize: number
+  setGinotPointSize: (size: number) => void
+  ginotPointOpacity: number
+  setGinotPointOpacity: (opacity: number) => void
+  showHeatParticles: boolean
+  setShowHeatParticles: (show: boolean) => void
+  particleDensity: number
+  setParticleDensity: (density: number) => void
+  particleSize: number
+  setParticleSize: (size: number) => void
+  showParticleTrails: boolean
+  setShowParticleTrails: (show: boolean) => void
+  particleTrailLength: number
+  setParticleTrailLength: (length: number) => void
+  particlePressureEnabled: boolean
+  setParticlePressureEnabled: (enabled: boolean) => void
+  particleBuoyancyEnabled: boolean
+  setParticleBuoyancyEnabled: (enabled: boolean) => void
 
   // 3D Heatmap visualization (Phase 1: 3D CFD Support)
   heatmapRenderMode: '2d' | '3d-slice' | '3d-volume'
@@ -67,9 +91,13 @@ type ViewerState = {
 
   outliner: Outliner // No setter as we will manipulate directly the arrays
 
+  // Three.js scene reference (set from inside Canvas)
+  threeScene: Scene | null
+  setThreeScene: (scene: Scene | null) => void
+
   // Export functionality
-  exportScene: (() => Promise<void>) | null
-  setExportScene: (fn: (() => Promise<void>) | null) => void
+  exportScene: ((format?: 'glb' | 'stl') => Promise<void>) | null
+  setExportScene: (fn: ((format?: 'glb' | 'stl') => Promise<void>) | null) => void
 
   cameraDragging: boolean
   setCameraDragging: (dragging: boolean) => void
@@ -133,8 +161,32 @@ const useViewerStore = create<ViewerState>()(
           return { showGrid: show, projectPreferences }
         }),
 
+      showHeatmap: true,
+      setShowHeatmap: (show) => set({ showHeatmap: show }),
       showHeatmapVectors: false,
       setShowHeatmapVectors: (show) => set({ showHeatmapVectors: show }),
+      showGinotPointCloud: true,
+      setShowGinotPointCloud: (show) => set({ showGinotPointCloud: show }),
+      ginotPointMetric: 'speed',
+      setGinotPointMetric: (metric) => set({ ginotPointMetric: metric }),
+      ginotPointSize: 0.075,
+      setGinotPointSize: (size) => set({ ginotPointSize: size }),
+      ginotPointOpacity: 0.8,
+      setGinotPointOpacity: (opacity) => set({ ginotPointOpacity: opacity }),
+      showHeatParticles: true,
+      setShowHeatParticles: (show) => set({ showHeatParticles: show }),
+      particleDensity: 1,
+      setParticleDensity: (density) => set({ particleDensity: density }),
+      particleSize: 0.034,
+      setParticleSize: (size) => set({ particleSize: size }),
+      showParticleTrails: false,
+      setShowParticleTrails: (show) => set({ showParticleTrails: show }),
+      particleTrailLength: 14,
+      setParticleTrailLength: (length) => set({ particleTrailLength: length }),
+      particlePressureEnabled: false,
+      setParticlePressureEnabled: (enabled) => set({ particlePressureEnabled: enabled }),
+      particleBuoyancyEnabled: false,
+      setParticleBuoyancyEnabled: (enabled) => set({ particleBuoyancyEnabled: enabled }),
 
       heatmapRenderMode: '2d',
       setHeatmapRenderMode: (mode) => set({ heatmapRenderMode: mode }),
@@ -187,6 +239,9 @@ const useViewerStore = create<ViewerState>()(
         }),
 
       outliner: { selectedObjects: [], hoveredObjects: [] },
+
+      threeScene: null,
+      setThreeScene: (scene) => set({ threeScene: scene }),
 
       exportScene: null,
       setExportScene: (fn) => set({ exportScene: fn }),

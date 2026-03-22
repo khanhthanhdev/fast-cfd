@@ -1,6 +1,11 @@
 import type { RoomGeometrySnapshot } from './room-geometry-snapshot'
-import { normalizePoints, normalizePoint, normalizeLoadVector } from './normalization'
-import { sampleBoundary, sampleInterior } from './point-sampler'
+import { normalizePoints, normalizeLoadVector } from './normalization'
+import {
+  DEFAULT_GINOT_BOUNDARY_POINT_COUNT,
+  DEFAULT_GINOT_INTERIOR_POINT_COUNT,
+  sampleBoundary,
+  sampleInterior,
+} from './point-sampler'
 import type { DiffuserInfo } from './diffuser-detector'
 
 /**
@@ -9,14 +14,14 @@ import type { DiffuserInfo } from './diffuser-detector'
  * All tensors use Float32Array for efficient binary transfer.
  * Shapes match Python model expectations:
  * - load: [1, 9] -> flattened to Float32Array(9)
- * - pc: [1, 100000, 3] -> flattened to Float32Array(300000)
+ * - pc: [1, N, 3] -> flattened to Float32Array(N*3)
  * - xyt: [1, N, 3] -> flattened to Float32Array(N*3)
  */
 export interface GinotInputTensors {
   /** Normalized load vector [inletCenter(3), outletCenter(3), inletVelocity(3)] */
   load: Float32Array
 
-  /** Normalized boundary points [100000, 3] flattened */
+  /** Normalized boundary points [N, 3] flattened */
   pc: Float32Array
 
   /** Normalized interior query points [N, 3] flattened */
@@ -35,10 +40,10 @@ export interface GinotInputTensors {
  * Options for GINOT input building
  */
 export interface GinotInputOptions {
-  /** Target boundary point count (default: 100,000) */
+  /** Target boundary point count (default: 5,000) */
   boundaryCount?: number
 
-  /** Target interior point count (default: 50,000) */
+  /** Target interior point count (default: 5,000) */
   interiorCount?: number
 
   /** Skip sampling, use provided points */
@@ -73,11 +78,11 @@ export function buildGinotInput(
 
   // Sample boundary points (pc)
   const boundaryPoints = options?.existingBoundaryPoints ??
-    sampleBoundary(geometry, options?.boundaryCount ?? 100000)
+    sampleBoundary(geometry, options?.boundaryCount ?? DEFAULT_GINOT_BOUNDARY_POINT_COUNT)
 
   // Sample interior points (xyt)
   const interiorPoints = options?.existingInteriorPoints ??
-    sampleInterior(geometry, options?.interiorCount ?? 50000)
+    sampleInterior(geometry, options?.interiorCount ?? DEFAULT_GINOT_INTERIOR_POINT_COUNT)
 
   // Normalize geometry points
   const normalizedBoundary = normalizePoints(boundaryPoints, center, scale)
@@ -220,7 +225,9 @@ export function validateGinotInput(tensors: GinotInputTensors): {
 
   const boundaryCount = tensors.pc.length / 3
   if (boundaryCount < 1000) {
-    errors.push(`Too few boundary points: ${boundaryCount} (expected ~100000)`)
+    errors.push(
+      `Too few boundary points: ${boundaryCount} (expected ~${DEFAULT_GINOT_BOUNDARY_POINT_COUNT})`,
+    )
   }
 
   // Validate XYT (interior points)
@@ -272,8 +279,8 @@ export function buildMockGinotInput(
 ): GinotInputTensors {
   const { center, scale } = geometry
 
-  const boundaryCount = options?.boundaryCount ?? 100000
-  const interiorCount = options?.interiorCount ?? 50000
+  const boundaryCount = options?.boundaryCount ?? DEFAULT_GINOT_BOUNDARY_POINT_COUNT
+  const interiorCount = options?.interiorCount ?? DEFAULT_GINOT_INTERIOR_POINT_COUNT
 
   // Generate deterministic mock boundary points (box surface)
   const mockBoundary = generateMockBoundary(geometry, boundaryCount)

@@ -1,12 +1,38 @@
-import { useRegistry, useScene, type HeatmapNode, type LevelNode, type ZoneNode } from '@pascal-app/core'
+import {
+  diffuseHeat,
+  ParticleSystemNode as ParticleSystemNodeSchema,
+  useRegistry,
+  useScene,
+  type HeatmapNode,
+  type LevelNode,
+  type ParticleSystemNodeType,
+  type ZoneNode,
+} from '@pascal-app/core'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DoubleSide, type Group, MeshBasicMaterial, PlaneGeometry, DataTexture, RGBAFormat, LinearFilter, Vector3 } from 'three'
-import { createHeatmapTexture, createHeatmapTexture3D, type GridData, type GridData3D } from '../../../lib/heatmap-texture-generator'
+import {
+  DataTexture,
+  DoubleSide,
+  LinearFilter,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  RGBAFormat,
+  Vector3,
+  type Group,
+} from 'three'
 import { useNodeEvents } from '../../../hooks/use-node-events'
+import { createHeatmapTexture, createHeatmapTexture3D, createHeatmapTextureFromSlice, type GridData, type GridData3D } from '../../../lib/heatmap-texture-generator'
+import {
+  createActiveHeatCellSet,
+  getHeatGridCellIndex,
+  projectTemperatureGrid3DTo2D,
+} from '../../../lib/heat-deposition'
+import { useViewerStore } from '../../../store/use-viewer'
+import { GinotPointCloud } from './ginot-point-cloud'
 import { VelocityVectors } from './velocity-vectors'
 import { colorMaps } from '../../../lib/color-maps'
-import { diffuseHeat } from '@pascal-app/core'
+import { ParticleFlowRenderer } from '../particles/particle-flow-renderer'
+import { generateFallbackParticleSystem } from '../../../lib/particle-system-fallback'
 
 interface Heatmap3DRendererProps {
   node: HeatmapNode
@@ -19,16 +45,10 @@ interface Heatmap3DRendererProps {
   showVectors?: boolean
 }
 
-/**
- * Calculate room bounds from level walls (preferred) or zone polygon.
- * Uses wall centerline coordinates so the heatmap fills the full room
- * up to the wall inner faces, avoiding gaps between heatmap and walls.
- */
 function useRoomBounds(node: HeatmapNode): { minX: number; maxX: number; minZ: number; maxZ: number } {
   const allNodes = useScene((state) => state.nodes)
 
   return useMemo(() => {
-    // Priority 1: Level bounds from children walls (wall centerlines fill the room)
     if (node.levelId) {
       const level = allNodes[node.levelId as keyof typeof allNodes] as unknown as LevelNode | undefined
       if (level?.children) {
@@ -40,8 +60,8 @@ function useRoomBounds(node: HeatmapNode): { minX: number; maxX: number; minZ: n
           }
         })
         if (wallCoords.length > 0) {
-          const xs = wallCoords.map((c) => c[0])
-          const zs = wallCoords.map((c) => c[1])
+          const xs = wallCoords.map((coord) => coord[0])
+          const zs = wallCoords.map((coord) => coord[1])
           return {
             minX: Math.min(...xs),
             maxX: Math.max(...xs),
@@ -52,12 +72,11 @@ function useRoomBounds(node: HeatmapNode): { minX: number; maxX: number; minZ: n
       }
     }
 
-    // Priority 2: Zone bounds from polygon
     if (node.zoneId) {
       const zone = allNodes[node.zoneId as keyof typeof allNodes] as unknown as ZoneNode | undefined
-      if (zone?.polygon && zone.polygon.length > 0) {
-        const xs = zone.polygon.map((p) => p[0])
-        const zs = zone.polygon.map((p) => p[1])
+      if (zone?.polygon?.length) {
+        const xs = zone.polygon.map((point) => point[0])
+        const zs = zone.polygon.map((point) => point[1])
         return {
           minX: Math.min(...xs),
           maxX: Math.max(...xs),
@@ -67,15 +86,10 @@ function useRoomBounds(node: HeatmapNode): { minX: number; maxX: number; minZ: n
       }
     }
 
-    // Fallback: default bounds
     return { minX: -5, maxX: 5, minZ: -5, maxZ: 5 }
-  }, [allNodes, node.zoneId, node.levelId])
+  }, [allNodes, node.levelId, node.zoneId])
 }
 
-/**
- * Create a vertical wall texture from 3D grid data
- * Samples a vertical cross-section (height × horizontal) from the 3D volume
- */
 function createVerticalSliceTexture(
   grid3D: number[][][],
   min: number,
@@ -94,22 +108,18 @@ function createVerticalSliceTexture(
 
   for (let k = 0; k < verticalLevels; k++) {
     for (let h = 0; h < gridSize; h++) {
-      let value: number
-      if (axis === 'z') {
-        // Slice along Z: row=sliceIndex, vary columns (x=h)
-        value = grid3D[k]?.[sliceIndex]?.[h] ?? min
-      } else {
-        // Slice along X: vary rows (z=h), col=sliceIndex
-        value = grid3D[k]?.[h]?.[sliceIndex] ?? min
-      }
+      const value =
+        axis === 'z'
+          ? (grid3D[k]?.[sliceIndex]?.[h] ?? min)
+          : (grid3D[k]?.[h]?.[sliceIndex] ?? min)
       const color = colorMapFn(value, min, max)
 
       for (let dy = 0; dy < upscale; dy++) {
         for (let dx = 0; dx < upscale; dx++) {
           const px = h * upscale + dx
-          const py = k * upscale + dy // bottom=0 is floor
+          const py = k * upscale + dy
           const idx = (py * texW + px) * 4
-          pixels[idx + 0] = Math.round(color.r * 255)
+          pixels[idx] = Math.round(color.r * 255)
           pixels[idx + 1] = Math.round(color.g * 255)
           pixels[idx + 2] = Math.round(color.b * 255)
           pixels[idx + 3] = 255
@@ -118,27 +128,53 @@ function createVerticalSliceTexture(
     }
   }
 
-  const tex = new DataTexture(pixels, texW, texH, RGBAFormat)
-  tex.magFilter = LinearFilter
-  tex.minFilter = LinearFilter
-  tex.needsUpdate = true
-  return tex
+  const texture = new DataTexture(pixels, texW, texH, RGBAFormat)
+  texture.magFilter = LinearFilter
+  texture.minFilter = LinearFilter
+  texture.needsUpdate = true
+  return texture
 }
 
-function disposeMaterialWithMap(mat: MeshBasicMaterial, seen: Set<string>) {
-  if (seen.has(mat.uuid)) return
-  seen.add(mat.uuid)
-  mat.map?.dispose()
-  mat.dispose()
+function disposeMaterialWithMap(material: MeshBasicMaterial, seen: Set<string>) {
+  if (seen.has(material.uuid)) return
+  seen.add(material.uuid)
+  material.map?.dispose()
+  material.dispose()
+}
+
+function getBounds(values: number[], fallbackMin: number, fallbackMax: number) {
+  if (values.length === 0) {
+    return { min: fallbackMin, max: fallbackMax }
+  }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+
+  if (min === max) {
+    return { min, max: min + 1 }
+  }
+
+  return { min, max }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function getHeatmapScalarMode(node: HeatmapNode): 'temperature' | 'velocity' | 'none' {
+  switch (node.visualizationType) {
+    case 'velocity':
+    case 'speed':
+      return 'velocity'
+    case 'pressure':
+      return 'none'
+    default:
+      return 'temperature'
+  }
 }
 
 type LodTier = 'near' | 'mid' | 'far'
 
-/**
- * Full-room 3D volumetric heatmap renderer.
- * Renders horizontal slices at each vertical level AND vertical wall slices
- * on all 4 sides of the room, filling the entire room space.
- */
 export const Heatmap3DRenderer = ({
   node,
   roomBounds: explicitRoomBounds,
@@ -148,74 +184,297 @@ export const Heatmap3DRenderer = ({
   const calculatedBounds = useRoomBounds(node)
   const roomBounds = explicitRoomBounds ?? calculatedBounds
   const allNodes = useScene((state) => state.nodes)
+  const renderMode = useViewerStore((state) => state.heatmapRenderMode)
+  const slicePosition = useViewerStore((state) => state.heatmapSlicePosition)
+  const showHeatmap = useViewerStore((state) => state.showHeatmap)
+  const showGinotPointCloud = useViewerStore((state) => state.showGinotPointCloud)
+  const ginotPointMetric = useViewerStore((state) => state.ginotPointMetric)
+  const ginotPointSize = useViewerStore((state) => state.ginotPointSize)
+  const ginotPointOpacity = useViewerStore((state) => state.ginotPointOpacity)
+  const showHeatParticles = useViewerStore((state) => state.showHeatParticles)
+  const particleDensity = useViewerStore((state) => state.particleDensity)
+  const particleSize = useViewerStore((state) => state.particleSize)
+  const showParticleTrails = useViewerStore((state) => state.showParticleTrails)
+  const particleTrailLength = useViewerStore((state) => state.particleTrailLength)
+  const particlePressureEnabled = useViewerStore((state) => state.particlePressureEnabled)
+  const particleBuoyancyEnabled = useViewerStore((state) => state.particleBuoyancyEnabled)
 
   useRegistry(node.id, 'heatmap', ref)
 
-  // Get room height from level
   const roomHeight = useMemo(() => {
     if (node.levelId) {
       const level = allNodes[node.levelId as keyof typeof allNodes] as unknown as LevelNode | undefined
-      const meta = level?.metadata as Record<string, unknown> | undefined
-      return (meta?.ceilingHeight as number) ?? 2.8
+      const metadata = level?.metadata as Record<string, unknown> | undefined
+      return (metadata?.ceilingHeight as number) ?? 2.8
     }
     return 2.8
   }, [allNodes, node.levelId])
 
-  // Ref for 3D grid to apply diffusion
   const grid3DRef = useRef<number[][][] | null>(null)
+  const activeHeatCellIndicesRef = useRef<Set<number> | null>(null)
+  const [heatVersion, setHeatVersion] = useState(0)
+  const heatRefreshAccumulatorRef = useRef(0)
 
-  // Heat diffusion update loop
+  useEffect(() => {
+    if (!node.heatDiffusionEnabled || !node.data.temperatureGrid3D?.length) {
+      grid3DRef.current = null
+      activeHeatCellIndicesRef.current = null
+      heatRefreshAccumulatorRef.current = 0
+      return
+    }
+
+    grid3DRef.current = null
+    activeHeatCellIndicesRef.current = null
+    heatRefreshAccumulatorRef.current = 0
+  }, [node.data.temperatureGrid3D, node.heatDiffusionEnabled])
+
   useFrame((_, delta) => {
-    if (!node.heatDiffusionEnabled || !node.data.temperatureGrid3D) return
+    if (!node.heatDiffusionEnabled || !node.data.temperatureGrid3D?.length) return
 
     const cappedDelta = Math.min(delta, 0.1)
+    const gridSize = node.data.gridSize || 20
+    const verticalLevels = node.data.verticalLevels ?? 25
+    const ambientTemperature = node.data.averageTemperature || 22
+    const fieldGridResolution: [number, number, number] = [gridSize, verticalLevels, gridSize]
+    // `diffuseHeat` iterates the nested grid as [level][row][col] => [k][j][i].
+    const diffusionGridResolution: [number, number, number] = [
+      gridSize,
+      gridSize,
+      verticalLevels,
+    ]
+    const activeHeatAmbient = overlayParticleSystem?.ambientTemperature ?? ambientTemperature
 
-    // Initialize grid ref if needed
-    if (!grid3DRef.current && node.data.temperatureGrid3D) {
-      grid3DRef.current = node.data.temperatureGrid3D.map((level) =>
-        level.map((row) => [...row]),
+    if (!grid3DRef.current) {
+      grid3DRef.current = Array.from({ length: verticalLevels }, (_, levelIndex) =>
+        Array.from({ length: gridSize }, (_, rowIndex) =>
+          Array.from(
+            { length: gridSize },
+            (_, colIndex) =>
+              node.data.temperatureGrid3D?.[levelIndex]?.[rowIndex]?.[colIndex]
+              ?? ambientTemperature,
+          ),
+        ),
+      )
+      activeHeatCellIndicesRef.current = createActiveHeatCellSet(
+        grid3DRef.current,
+        fieldGridResolution,
+        activeHeatAmbient,
       )
     }
 
-    if (grid3DRef.current) {
-      const gridSize = node.data.gridSize || 20
-      const verticalLevels = node.data.verticalLevels ?? 10
-      // cellSize must match grid indexing: [i=x, j=z, k=height]
-      const cellSize: [number, number, number] = [
-        (roomBounds.maxX - roomBounds.minX) / gridSize,
-        (roomBounds.maxZ - roomBounds.minZ) / gridSize,
-        roomHeight / verticalLevels,
-      ]
+    if (!grid3DRef.current) return
 
-      diffuseHeat({
-        temperatureGrid3D: grid3DRef.current,
-        gridResolution: [gridSize, gridSize, verticalLevels],
-        cellSize,
-        diffusionCoefficient: node.diffusionCoefficient,
-        deltaTime: cappedDelta,
-        iterations: node.diffusionIterations,
-        ambientTemperature: 293,
-      })
+    const cellSize: [number, number, number] = [
+      (roomBounds.maxX - roomBounds.minX) / gridSize,
+      (roomBounds.maxZ - roomBounds.minZ) / gridSize,
+      roomHeight / verticalLevels,
+    ]
 
-      // Sync back to node data
-      for (let k = 0; k < verticalLevels; k++) {
-        for (let j = 0; j < gridSize; j++) {
-          for (let i = 0; i < gridSize; i++) {
-            if (node.data.temperatureGrid3D?.[k]?.[j]?.[i] !== undefined) {
-              node.data.temperatureGrid3D[k]![j]![i] = grid3DRef.current[k]?.[j]?.[i] ?? 293
-            }
+    diffuseHeat({
+      temperatureGrid3D: grid3DRef.current,
+      gridResolution: diffusionGridResolution,
+      cellSize,
+      diffusionCoefficient: node.diffusionCoefficient,
+      deltaTime: cappedDelta,
+      iterations: node.diffusionIterations,
+      ambientTemperature,
+    })
+
+    activeHeatCellIndicesRef.current?.clear()
+
+    for (let k = 0; k < verticalLevels; k++) {
+      for (let j = 0; j < gridSize; j++) {
+        for (let i = 0; i < gridSize; i++) {
+          const value = grid3DRef.current[k]?.[j]?.[i] ?? ambientTemperature
+
+          if (Math.abs(value - activeHeatAmbient) > 1e-3) {
+            activeHeatCellIndicesRef.current?.add(
+              getHeatGridCellIndex(i, k, j, fieldGridResolution),
+            )
+          }
+
+          if (node.data.temperatureGrid3D?.[k]?.[j]?.[i] !== undefined) {
+            node.data.temperatureGrid3D[k]![j]![i] = value
           }
         }
       }
     }
+
+    if (node.data.temperatureGrid.length > 0) {
+      projectTemperatureGrid3DTo2D(grid3DRef.current, node.data.temperatureGrid)
+    }
+
+    heatRefreshAccumulatorRef.current += cappedDelta
+    if (heatRefreshAccumulatorRef.current >= 0.15) {
+      heatRefreshAccumulatorRef.current = 0
+      setHeatVersion((version) => version + 1)
+    }
   })
 
-  // Check if 3D data available
-  const has3DData = useMemo(() => {
-    return !!node.data.temperatureGrid3D && !!node.data.velocityGrid3D
-  }, [node.data.temperatureGrid3D, node.data.velocityGrid3D])
+  const scalarMode = useMemo(() => getHeatmapScalarMode(node), [node])
+  const hasTemperature2D = node.data.temperatureGrid.length > 0
+  const hasVelocity2D = node.data.velocityGrid.length > 0
+  const hasTemperature3D = !!node.data.temperatureGrid3D?.length
+  const hasVelocity3D = !!node.data.velocityGrid3D?.length
+  const hasGinotPoints = !!node.data.ginotPointCloud?.length
+  const storedParticleSystem = useMemo<ParticleSystemNodeType | null>(() => {
+    const metadata = node.metadata as Record<string, unknown> | undefined
+    const particleSystem = metadata?.particleSystem
 
-  // Room dimensions
+    if (particleSystem) {
+      const parsed = ParticleSystemNodeSchema.safeParse(particleSystem)
+      if (parsed.success) return parsed.data
+    }
+
+    // Fallback: auto-generate particle system from heatmap data
+    return generateFallbackParticleSystem(node, roomBounds, roomHeight)
+  }, [node, roomBounds, roomHeight])
+
+  const hasRenderable2DData =
+    scalarMode === 'temperature'
+      ? hasTemperature2D
+      : scalarMode === 'velocity'
+        ? hasVelocity2D
+        : false
+
+  const hasRenderable3DData =
+    scalarMode === 'temperature'
+      ? hasTemperature3D
+      : scalarMode === 'velocity'
+        ? hasVelocity3D
+        : false
+
+  const selected2DGrid = useMemo(() => {
+    if (scalarMode === 'velocity') {
+      return node.data.velocityGrid
+    }
+    if (scalarMode === 'temperature') {
+      return node.data.temperatureGrid
+    }
+    return []
+  }, [node.data.temperatureGrid, node.data.velocityGrid, scalarMode])
+
+  const selected3DGrid = useMemo(() => {
+    if (scalarMode === 'velocity') {
+      return node.data.velocityGrid3D ?? []
+    }
+    if (scalarMode === 'temperature') {
+      return node.data.temperatureGrid3D ?? []
+    }
+    return []
+  }, [node.data.temperatureGrid3D, node.data.velocityGrid3D, scalarMode])
+
+  const thermalDataBounds = useMemo(() => {
+    void heatVersion
+    const fallback = {
+      min: node.data.averageTemperature - 4,
+      max: node.data.averageTemperature + 4,
+    }
+    const values = node.data.temperatureGrid3D?.length
+      ? node.data.temperatureGrid3D.flat(2)
+      : node.data.temperatureGrid.flat()
+    return getBounds(values, fallback.min, fallback.max)
+  }, [heatVersion, node.data.averageTemperature, node.data.temperatureGrid, node.data.temperatureGrid3D])
+
+  const dataBounds = useMemo(() => {
+    void heatVersion
+    const fallback = {
+      min: node.data.averageTemperature - 5,
+      max: node.data.averageTemperature + 5,
+    }
+    const values =
+      renderMode !== '2d' && hasRenderable3DData
+        ? selected3DGrid.flat(2)
+        : selected2DGrid.flat()
+    const computed = getBounds(values, fallback.min, fallback.max)
+    const min = node.dataMin ?? computed.min
+    const max = node.dataMax ?? computed.max
+
+    if (min === max) {
+      return { min, max: min + 1 }
+    }
+
+    return { min, max }
+  }, [
+    heatVersion,
+    hasRenderable3DData,
+    node.data.averageTemperature,
+    node.dataMax,
+    node.dataMin,
+    renderMode,
+    selected2DGrid,
+    selected3DGrid,
+  ])
+
+  const overlayParticleSystem = useMemo<ParticleSystemNodeType | null>(() => {
+    if (!storedParticleSystem) return null
+
+    return {
+      ...storedParticleSystem,
+      particleCount: clamp(
+        Math.round(storedParticleSystem.particleCount * particleDensity),
+        400,
+        5000,
+      ),
+      particleSize,
+      showTrails: showParticleTrails,
+      trailLength: particleTrailLength,
+      colorScheme: node.colorScheme,
+      particleOpacity: clamp(0.55 + (node.opacity ?? 0.7) * 0.35, 0.45, 0.9),
+      temperatureRange: [thermalDataBounds.min, thermalDataBounds.max],
+      enablePressure: particlePressureEnabled,
+      enableBuoyancy: particleBuoyancyEnabled,
+      debugShowVectors: showVectors,
+      enabled: storedParticleSystem.enabled && showHeatParticles,
+    }
+  }, [
+    node.colorScheme,
+    node.opacity,
+    particleBuoyancyEnabled,
+    particleDensity,
+    particlePressureEnabled,
+    particleSize,
+    particleTrailLength,
+    showHeatParticles,
+    showParticleTrails,
+    showVectors,
+    storedParticleSystem,
+    thermalDataBounds.max,
+    thermalDataBounds.min,
+  ])
+
+  const gridData2D = useMemo<GridData | null>(() => {
+    void heatVersion
+    if (!hasRenderable2DData) return null
+    return {
+      values: selected2DGrid,
+      min: dataBounds.min,
+      max: dataBounds.max,
+    }
+  }, [dataBounds.max, dataBounds.min, hasRenderable2DData, heatVersion, selected2DGrid])
+
+  const gridData3D = useMemo<GridData3D | null>(() => {
+    void heatVersion
+    if (!hasRenderable3DData) return null
+
+    const verticalLevels = selected3DGrid.length || node.data.verticalLevels || 0
+    return {
+      values: selected3DGrid,
+      min: dataBounds.min,
+      max: dataBounds.max,
+      verticalLevels,
+      heightOffsets: node.data.heightOffsets,
+    }
+  }, [
+    dataBounds.max,
+    dataBounds.min,
+    hasRenderable3DData,
+    heatVersion,
+    node.data.heightOffsets,
+    node.data.verticalLevels,
+    selected3DGrid,
+  ])
+
   const { width, depth, centerX, centerZ } = useMemo(() => {
     const width = roomBounds.maxX - roomBounds.minX
     const depth = roomBounds.maxZ - roomBounds.minZ
@@ -224,87 +483,101 @@ export const Heatmap3DRenderer = ({
     return { width, depth, centerX, centerZ }
   }, [roomBounds])
 
-  // Data bounds
-  const dataBounds = useMemo(() => {
-    return {
-      min: node.dataMin ?? node.data.averageTemperature - 5,
-      max: node.dataMax ?? node.data.averageTemperature + 5,
-    }
-  }, [node.dataMin, node.dataMax, node.data.averageTemperature])
+  const sliceIndex = useMemo(() => {
+    if (!gridData3D) return 0
+    const totalLevels = Math.max(gridData3D.verticalLevels, 1)
+    return Math.min(
+      totalLevels - 1,
+      Math.max(0, Math.round(slicePosition * (totalLevels - 1))),
+    )
+  }, [gridData3D, slicePosition])
 
-  // Select 3D grid values based on visualization type
-  const grid3DValues = useMemo(() => {
-    if (!has3DData) return null
-    switch (node.visualizationType) {
-      case 'velocity':
-        return node.data.velocityGrid3D!
-      case 'pmv':
-      case 'temperature':
-      default:
-        return node.data.temperatureGrid3D!
+  const singlePlaneY = useMemo(() => {
+    if (renderMode !== '3d-slice' || !gridData3D) {
+      return Math.min(1.2, roomHeight)
     }
-  }, [has3DData, node.data, node.visualizationType])
 
-  // Fallback 2D grid data
-  const gridData2D: GridData = useMemo(() => {
-    let values: number[][]
-    switch (node.visualizationType) {
-      case 'velocity':
-        values = node.data.velocityGrid
-        break
-      case 'pmv':
-      case 'temperature':
-      default:
-        values = node.data.temperatureGrid
+    const totalLevels = Math.max(gridData3D.verticalLevels - 1, 1)
+    const normalizedHeight = gridData3D.heightOffsets?.[sliceIndex] ?? sliceIndex / totalLevels
+    return normalizedHeight * roomHeight
+  }, [gridData3D, renderMode, roomHeight, sliceIndex])
+
+  const singlePlaneTexture = useMemo(() => {
+    if (renderMode === '3d-volume') return null
+
+    if (renderMode === '3d-slice' && gridData3D) {
+      return createHeatmapTextureFromSlice(gridData3D, sliceIndex, node.colorScheme)
     }
-    return { values, ...dataBounds }
-  }, [node.data, node.visualizationType, dataBounds])
 
-  // LOD tier based on camera distance (bucketed to avoid thrashing)
+    if (!gridData2D) return null
+    return createHeatmapTexture(gridData2D, node.colorScheme)
+  }, [gridData2D, gridData3D, node.colorScheme, renderMode, sliceIndex])
+
+  const singlePlaneMaterial = useMemo(() => {
+    if (!singlePlaneTexture) return null
+
+    return new MeshBasicMaterial({
+      map: singlePlaneTexture,
+      transparent: true,
+      opacity: node.opacity ?? 0.7,
+      side: DoubleSide,
+      depthWrite: false,
+      depthTest: true,
+    })
+  }, [node.opacity, singlePlaneTexture])
+
+  useEffect(() => {
+    if (!singlePlaneMaterial) return
+
+    return () => {
+      const seen = new Set<string>()
+      disposeMaterialWithMap(singlePlaneMaterial, seen)
+    }
+  }, [singlePlaneMaterial])
+
   const [lodTier, setLodTier] = useState<LodTier>('mid')
   const lodTierRef = useRef<LodTier>(lodTier)
-
   const { camera } = useThree()
   const roomCenterRef = useRef(new Vector3())
+
   useFrame(() => {
     roomCenterRef.current.set(centerX, roomHeight / 2, centerZ)
-    const dist = camera.position.distanceTo(roomCenterRef.current)
-    const tier: LodTier = dist < 5 ? 'near' : dist < 15 ? 'mid' : 'far'
-    if (tier !== lodTierRef.current) {
-      lodTierRef.current = tier
-      setLodTier(tier)
+    const distance = camera.position.distanceTo(roomCenterRef.current)
+    const nextTier: LodTier = distance < 5 ? 'near' : distance < 15 ? 'mid' : 'far'
+
+    if (nextTier !== lodTierRef.current) {
+      lodTierRef.current = nextTier
+      setLodTier(nextTier)
     }
   })
 
   const horizontalSlices = useMemo(() => {
+    if (renderMode !== '3d-volume') return []
+
     const baseOpacity = node.opacity ?? 0.7
-    const gridSize = node.data.gridSize || 20
-    const totalVerticalLevels = node.data.verticalLevels ?? 25
+    const totalVerticalLevels = gridData3D?.verticalLevels ?? (node.data.verticalLevels ?? 25)
 
-    // LOD based on camera distance tier
-    const visibleLevels = (() => {
-      if (lodTier === 'near') return Math.min(25, totalVerticalLevels)
-      if (lodTier === 'mid') return Math.min(15, totalVerticalLevels)
-      return Math.min(10, totalVerticalLevels)
-    })()
+    if (gridData3D) {
+      const visibleLevels = (() => {
+        if (lodTier === 'near') return Math.min(25, totalVerticalLevels)
+        if (lodTier === 'mid') return Math.min(15, totalVerticalLevels)
+        return Math.min(10, totalVerticalLevels)
+      })()
 
-    if (has3DData && grid3DValues) {
-      // True 3D: one texture per vertical level (or LOD-reduced)
-      const gridData3D: GridData3D = {
-        values: grid3DValues,
-        ...dataBounds,
-        verticalLevels: visibleLevels,
-        heightOffsets: node.data.heightOffsets,
-      }
-      const textures = createHeatmapTexture3D(gridData3D, node.colorScheme)
-
-      // Adjust opacity for visual clarity with more slices
+      const textures = createHeatmapTexture3D(
+        { ...gridData3D, verticalLevels: visibleLevels },
+        node.colorScheme,
+      )
       const opacityScale = (10 / visibleLevels) * 0.7
 
-      return textures.map((texture, k) => {
-        const normalizedHeight = node.data.heightOffsets?.[k] ?? k / (visibleLevels - 1)
+      return textures.map((texture, index) => {
+        const normalizedHeight =
+          node.data.heightOffsets?.[index] ?? index / Math.max(visibleLevels - 1, 1)
         const y = normalizedHeight * roomHeight
-        const opacity = baseOpacity * (0.3 + 0.7 * (1 - Math.abs(normalizedHeight - 0.5) * 0.5)) * opacityScale
+        const opacity =
+          baseOpacity *
+          (0.3 + 0.7 * (1 - Math.abs(normalizedHeight - 0.5) * 0.5)) *
+          opacityScale
 
         const material = new MeshBasicMaterial({
           map: texture,
@@ -319,14 +592,15 @@ export const Heatmap3DRenderer = ({
       })
     }
 
-    // Fallback: repeat 2D texture at several heights
+    if (!gridData2D) return []
+
     const sliceCount = 8
     const texture = createHeatmapTexture(gridData2D, node.colorScheme)
-    return Array.from({ length: sliceCount }, (_, i) => {
-      const t = i / (sliceCount - 1)
+
+    return Array.from({ length: sliceCount }, (_, index) => {
+      const t = index / Math.max(sliceCount - 1, 1)
       const y = t * roomHeight
       const opacity = baseOpacity * (0.3 + 0.4 * (1 - Math.abs(t - 0.5)))
-
       const material = new MeshBasicMaterial({
         map: texture,
         transparent: true,
@@ -338,9 +612,18 @@ export const Heatmap3DRenderer = ({
 
       return { material, y }
     })
-  }, [has3DData, grid3DValues, gridData2D, node.colorScheme, node.opacity, node.data, roomHeight, dataBounds, lodTier])
+  }, [
+    gridData2D,
+    gridData3D,
+    lodTier,
+    node.colorScheme,
+    node.data.heightOffsets,
+    node.data.verticalLevels,
+    node.opacity,
+    renderMode,
+    roomHeight,
+  ])
 
-  // Dispose horizontal slice materials and textures
   useEffect(() => {
     return () => {
       const seen = new Set<string>()
@@ -350,23 +633,18 @@ export const Heatmap3DRenderer = ({
     }
   }, [horizontalSlices])
 
-  // Generate vertical wall slice materials for all 4 walls
   const wallSlices = useMemo(() => {
+    if (renderMode !== '3d-volume') return null
+
     const baseOpacity = (node.opacity ?? 0.7) * 0.35
     const gridSize = node.data.gridSize || 20
-    const totalVerticalLevels = node.data.verticalLevels ?? 25
+    const totalVerticalLevels = gridData3D?.verticalLevels ?? (node.data.verticalLevels ?? 25)
 
-    // LOD based on camera distance tier
-    const visibleLevels = (() => {
-      if (lodTier === 'near') return Math.min(25, totalVerticalLevels)
-      if (lodTier === 'mid') return Math.min(15, totalVerticalLevels)
-      return Math.min(10, totalVerticalLevels)
-    })()
+    if (!gridData3D) {
+      if (!gridData2D) return null
 
-    if (!has3DData || !grid3DValues) {
-      // Fallback: single 2D texture on walls
       const texture = createHeatmapTexture(gridData2D, node.colorScheme)
-      const mat = new MeshBasicMaterial({
+      const material = new MeshBasicMaterial({
         map: texture,
         transparent: true,
         opacity: baseOpacity,
@@ -374,38 +652,65 @@ export const Heatmap3DRenderer = ({
         depthWrite: false,
         depthTest: true,
       })
+
       return {
-        frontMat: mat,
-        backMat: mat,
-        leftMat: mat,
-        rightMat: mat,
+        frontMat: material,
+        backMat: material,
+        leftMat: material,
+        rightMat: material,
       }
     }
 
-    // Front wall (Z = minZ): slice along z-row=0
+    const visibleLevels = (() => {
+      if (lodTier === 'near') return Math.min(25, totalVerticalLevels)
+      if (lodTier === 'mid') return Math.min(15, totalVerticalLevels)
+      return Math.min(10, totalVerticalLevels)
+    })()
+
     const frontTex = createVerticalSliceTexture(
-      grid3DValues, dataBounds.min, dataBounds.max,
-      'z', 0, gridSize, visibleLevels, node.colorScheme,
+      gridData3D.values,
+      dataBounds.min,
+      dataBounds.max,
+      'z',
+      0,
+      gridSize,
+      visibleLevels,
+      node.colorScheme,
     )
-    // Back wall (Z = maxZ): slice along z-row=gridSize-1
     const backTex = createVerticalSliceTexture(
-      grid3DValues, dataBounds.min, dataBounds.max,
-      'z', gridSize - 1, gridSize, visibleLevels, node.colorScheme,
+      gridData3D.values,
+      dataBounds.min,
+      dataBounds.max,
+      'z',
+      gridSize - 1,
+      gridSize,
+      visibleLevels,
+      node.colorScheme,
     )
-    // Left wall (X = minX): slice along x-col=0
     const leftTex = createVerticalSliceTexture(
-      grid3DValues, dataBounds.min, dataBounds.max,
-      'x', 0, gridSize, visibleLevels, node.colorScheme,
+      gridData3D.values,
+      dataBounds.min,
+      dataBounds.max,
+      'x',
+      0,
+      gridSize,
+      visibleLevels,
+      node.colorScheme,
     )
-    // Right wall (X = maxX): slice along x-col=gridSize-1
     const rightTex = createVerticalSliceTexture(
-      grid3DValues, dataBounds.min, dataBounds.max,
-      'x', gridSize - 1, gridSize, visibleLevels, node.colorScheme,
+      gridData3D.values,
+      dataBounds.min,
+      dataBounds.max,
+      'x',
+      gridSize - 1,
+      gridSize,
+      visibleLevels,
+      node.colorScheme,
     )
 
-    const makeMat = (tex: DataTexture) =>
+    const createMaterial = (texture: DataTexture) =>
       new MeshBasicMaterial({
-        map: tex,
+        map: texture,
         transparent: true,
         opacity: baseOpacity,
         side: DoubleSide,
@@ -414,15 +719,27 @@ export const Heatmap3DRenderer = ({
       })
 
     return {
-      frontMat: makeMat(frontTex),
-      backMat: makeMat(backTex),
-      leftMat: makeMat(leftTex),
-      rightMat: makeMat(rightTex),
+      frontMat: createMaterial(frontTex),
+      backMat: createMaterial(backTex),
+      leftMat: createMaterial(leftTex),
+      rightMat: createMaterial(rightTex),
     }
-  }, [has3DData, grid3DValues, gridData2D, node.colorScheme, node.opacity, node.data, dataBounds, lodTier])
+  }, [
+    dataBounds.max,
+    dataBounds.min,
+    gridData2D,
+    gridData3D,
+    lodTier,
+    node.colorScheme,
+    node.data.gridSize,
+    node.data.verticalLevels,
+    node.opacity,
+    renderMode,
+  ])
 
-  // Dispose wall slice materials and textures
   useEffect(() => {
+    if (!wallSlices) return
+
     return () => {
       const seen = new Set<string>()
       disposeMaterialWithMap(wallSlices.frontMat, seen)
@@ -432,67 +749,101 @@ export const Heatmap3DRenderer = ({
     }
   }, [wallSlices])
 
-  // Geometries
-  const horizontalGeo = useMemo(() => new PlaneGeometry(width, depth), [width, depth])
-  const wallGeoFrontBack = useMemo(() => new PlaneGeometry(width, roomHeight), [width, roomHeight])
+  const horizontalGeo = useMemo(() => new PlaneGeometry(width, depth), [depth, width])
+  const wallGeoFrontBack = useMemo(() => new PlaneGeometry(width, roomHeight), [roomHeight, width])
   const wallGeoLeftRight = useMemo(() => new PlaneGeometry(depth, roomHeight), [depth, roomHeight])
 
-  // Dispose geometries
   useEffect(() => () => horizontalGeo.dispose(), [horizontalGeo])
   useEffect(() => () => wallGeoFrontBack.dispose(), [wallGeoFrontBack])
   useEffect(() => () => wallGeoLeftRight.dispose(), [wallGeoLeftRight])
 
   const handlers = useNodeEvents(node, 'heatmap')
+  const canRenderHeatmapSurface =
+    renderMode === '3d-volume' ? horizontalSlices.length > 0 : !!singlePlaneMaterial
+  const shouldRenderHeatmapSurface = showHeatmap && canRenderHeatmapSurface
+  const shouldRenderVectors = showVectors && (hasRenderable2DData || hasRenderable3DData)
+  const shouldShareHeatGrid = node.heatDiffusionEnabled && !!node.data.temperatureGrid3D?.length
 
   return (
     <group ref={ref} {...handlers}>
-      {/* Horizontal slices filling the room volume */}
-      {horizontalSlices.map((slice, index) => (
+      {renderMode === '3d-volume' && shouldRenderHeatmapSurface && (
+        <>
+          {horizontalSlices.map((slice, index) => (
+            <mesh
+              key={`horizontal-${index}`}
+              geometry={horizontalGeo}
+              material={slice.material}
+              position={[centerX, slice.y, centerZ]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            />
+          ))}
+
+          {wallSlices && (
+            <>
+              <mesh
+                geometry={wallGeoFrontBack}
+                material={wallSlices.frontMat}
+                position={[centerX, roomHeight / 2, roomBounds.minZ]}
+              />
+              <mesh
+                geometry={wallGeoFrontBack}
+                material={wallSlices.backMat}
+                position={[centerX, roomHeight / 2, roomBounds.maxZ]}
+              />
+              <mesh
+                geometry={wallGeoLeftRight}
+                material={wallSlices.leftMat}
+                position={[roomBounds.minX, roomHeight / 2, centerZ]}
+                rotation={[0, Math.PI / 2, 0]}
+              />
+              <mesh
+                geometry={wallGeoLeftRight}
+                material={wallSlices.rightMat}
+                position={[roomBounds.maxX, roomHeight / 2, centerZ]}
+                rotation={[0, Math.PI / 2, 0]}
+              />
+            </>
+          )}
+        </>
+      )}
+
+      {renderMode !== '3d-volume' && shouldRenderHeatmapSurface && singlePlaneMaterial && (
         <mesh
-          key={`h-${index}`}
           geometry={horizontalGeo}
-          material={slice.material}
-          position={[centerX, slice.y, centerZ]}
+          material={singlePlaneMaterial}
+          position={[centerX, singlePlaneY, centerZ]}
           rotation={[-Math.PI / 2, 0, 0]}
         />
-      ))}
+      )}
 
-      {/* Front wall (Z = minZ) */}
-      <mesh
-        geometry={wallGeoFrontBack}
-        material={wallSlices.frontMat}
-        position={[centerX, roomHeight / 2, roomBounds.minZ]}
-      />
+      {overlayParticleSystem && (
+        <ParticleFlowRenderer
+          node={overlayParticleSystem}
+          roomBounds={{
+            min: [roomBounds.minX, 0, roomBounds.minZ],
+            max: [roomBounds.maxX, roomHeight, roomBounds.maxZ],
+          }}
+          sharedHeatGridRef={shouldShareHeatGrid ? grid3DRef : undefined}
+          sharedActiveHeatCellIndicesRef={
+            shouldShareHeatGrid ? activeHeatCellIndicesRef : undefined
+          }
+        />
+      )}
 
-      {/* Back wall (Z = maxZ) */}
-      <mesh
-        geometry={wallGeoFrontBack}
-        material={wallSlices.backMat}
-        position={[centerX, roomHeight / 2, roomBounds.maxZ]}
-      />
-
-      {/* Left wall (X = minX) */}
-      <mesh
-        geometry={wallGeoLeftRight}
-        material={wallSlices.leftMat}
-        position={[roomBounds.minX, roomHeight / 2, centerZ]}
-        rotation={[0, Math.PI / 2, 0]}
-      />
-
-      {/* Right wall (X = maxX) */}
-      <mesh
-        geometry={wallGeoLeftRight}
-        material={wallSlices.rightMat}
-        position={[roomBounds.maxX, roomHeight / 2, centerZ]}
-        rotation={[0, Math.PI / 2, 0]}
-      />
-
-      {/* Velocity vectors at head level */}
-      {showVectors && (
+      {shouldRenderVectors && (
         <VelocityVectors
           node={node}
           roomBounds={roomBounds}
-          heightOffset={1.2}
+          heightOffset={renderMode === '3d-slice' ? singlePlaneY : 1.2}
+        />
+      )}
+
+      {showGinotPointCloud && hasGinotPoints && (
+        <GinotPointCloud
+          node={node}
+          metric={ginotPointMetric}
+          pointSize={ginotPointSize}
+          opacity={ginotPointOpacity}
         />
       )}
     </group>

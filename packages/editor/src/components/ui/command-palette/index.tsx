@@ -628,12 +628,20 @@ export function CommandPalette() {
                     onSelect={exportJson}
                   />
                   {exportScene && (
-                    <Item
-                      icon={<Box className="h-4 w-4" />}
-                      keywords={['export', 'glb', 'gltf', '3d', 'model', 'download']}
-                      label="Export 3D Model (GLB)"
-                      onSelect={() => run(() => exportScene())}
-                    />
+                    <>
+                      <Item
+                        icon={<Box className="h-4 w-4" />}
+                        keywords={['export', 'glb', 'gltf', '3d', 'model', 'download']}
+                        label="Export 3D Model (GLB)"
+                        onSelect={() => run(() => exportScene('glb'))}
+                      />
+                      <Item
+                        icon={<Box className="h-4 w-4" />}
+                        keywords={['export', 'stl', '3d', 'model', 'download', 'print']}
+                        label="Export 3D Model (STL)"
+                        onSelect={() => run(() => exportScene('stl'))}
+                      />
+                    </>
                   )}
                   <Item
                     icon={<Copy className="h-4 w-4" />}

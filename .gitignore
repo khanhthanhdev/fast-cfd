@@ -18,7 +18,7 @@ coverage
 .claude
 # Turbo
 .turbo
-plans
+
 # Supabase local state
 supabase/.branches/
 supabase/.temp/

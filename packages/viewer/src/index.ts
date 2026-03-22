@@ -12,8 +12,8 @@ export {
 } from './lib/particle-system'
 export {
   createParticleUniforms,
-  particleFragmentShader,
-  particleVertexShader,
+  createParticleNodeMaterial,
+  type ParticleNodeMaterial,
 } from './lib/particle-shaders'
 export {
   createTrailBuffers,

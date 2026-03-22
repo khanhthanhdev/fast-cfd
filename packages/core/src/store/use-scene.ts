@@ -3,14 +3,14 @@
 import type { TemporalState } from 'zundo'
 import { temporal } from 'zundo'
 import { create, type StoreApi, type UseBoundStore } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import { BuildingNode } from '../schema'
 import type { Collection, CollectionId } from '../schema/collections'
 import { generateCollectionId } from '../schema/collections'
 import { LevelNode } from '../schema/nodes/level'
 import { SiteNode } from '../schema/nodes/site'
 import type { AnyNode, AnyNodeId } from '../schema/types'
-import { isObject } from '../utils/types'
+import { sanitizeSceneStateForPersistence } from '../lib/scene-persistence'
 import * as nodeActions from './actions/node-actions'
 
 export type SceneState = {
@@ -56,6 +56,36 @@ export type SceneState = {
 type UseSceneStore = UseBoundStore<StoreApi<SceneState>> & {
   temporal: StoreApi<TemporalState<Pick<SceneState, 'nodes' | 'rootNodeIds' | 'collections'>>>
 }
+
+const safeSceneStorage = createJSONStorage(() => ({
+  getItem: (name: string) => {
+    if (typeof window === 'undefined') return null
+
+    try {
+      return window.localStorage.getItem(name)
+    } catch {
+      return null
+    }
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === 'undefined') return
+
+    try {
+      window.localStorage.setItem(name, value)
+    } catch (error) {
+      console.warn(`Failed to persist ${name}`, error)
+    }
+  },
+  removeItem: (name: string) => {
+    if (typeof window === 'undefined') return
+
+    try {
+      window.localStorage.removeItem(name)
+    } catch (error) {
+      console.warn(`Failed to clear ${name}`, error)
+    }
+  },
+}))
 
 const useScene: UseSceneStore = create<SceneState>()(
   persist(
@@ -259,23 +289,19 @@ const useScene: UseSceneStore = create<SceneState>()(
     ),
     {
       name: 'editor-storage',
+      storage: safeSceneStorage,
       version: 1,
       // Keep existing local scenes when the persist version changes.
       migrate: (persistedState) =>
         persistedState as Pick<SceneState, 'nodes' | 'rootNodeIds' | 'collections'>,
-      partialize: (state) => ({
-        nodes: Object.fromEntries(
-          Object.entries(state.nodes).filter(([_, node]) => {
-            const meta = node.metadata
-            const isTransient = isObject(meta) && 'isTransient' in meta && meta.isTransient === true
-
-            return !isTransient
-          }),
-        ),
-        rootNodeIds: state.rootNodeIds,
-        collections: state.collections,
-      }),
+      partialize: (state) =>
+        sanitizeSceneStateForPersistence({
+          nodes: state.nodes,
+          rootNodeIds: state.rootNodeIds,
+          collections: state.collections,
+        }),
       merge: (persistedState, currentState) => {
+        if (!persistedState) return currentState
         const persisted = persistedState as Partial<SceneState>
         // Backward compat: add default scale to item nodes saved before scale was added
         if (persisted.nodes) {

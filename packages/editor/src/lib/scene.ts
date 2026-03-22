@@ -1,6 +1,11 @@
 'use client'
 
-import { useScene } from '@pascal-app/core'
+import {
+  type AnyNode,
+  type AnyNodeId,
+  sanitizeSceneGraphForPersistence,
+  useScene,
+} from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import useEditor from '../store/use-editor'
 
@@ -57,7 +62,12 @@ const LOCAL_STORAGE_KEY = 'pascal-editor-scene'
 
 export function saveSceneToLocalStorage(scene: SceneGraph): void {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(scene))
+    const persistedScene = sanitizeSceneGraphForPersistence({
+      nodes: scene.nodes as Record<AnyNodeId, AnyNode>,
+      rootNodeIds: scene.rootNodeIds as AnyNodeId[],
+    })
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(persistedScene))
   } catch {
     // Swallow storage quota errors
   }

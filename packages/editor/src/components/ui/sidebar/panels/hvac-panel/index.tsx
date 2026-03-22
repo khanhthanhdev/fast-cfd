@@ -1,9 +1,9 @@
 'use client'
 
+import { useMemo } from 'react'
 import { HVACConfigPanel } from '../../../../panels/hvac-config-panel'
-import { ComfortKPIDisplay, ExportReportButton } from '../../../../ui/hvac'
+import { HeatmapLegend } from '../../../../ui/hvac'
 import { VisualizationControls } from '../../../../ui/hvac/visualization-controls'
-import { PanelSection } from '../../../controls/panel-section'
 import { useHVACRoomSelection } from '../../../../../hooks/use-hvac-room-selection'
 import { useHVACAnalysis } from '../../../../../hooks/use-hvac-analysis'
 import { Button } from '../../../../ui/primitives/button'
@@ -28,7 +28,6 @@ export function HVACPanel() {
     activeHeatmapId,
     boundaryConditions,
     setBoundaryConditions,
-    currentScenario,
     visualizationType,
     colorScheme,
     opacity,
@@ -36,7 +35,20 @@ export function HVACPanel() {
     renderMode,
     slicePosition,
     has3DData,
+    hasGinotPointCloud,
+    showGinotPointCloud,
+    ginotPointMetric,
+    ginotPointSize,
+    ginotPointOpacity,
+    showParticles,
+    particleDensity,
+    particleSize,
+    showParticleTrails,
+    particleTrailLength,
+    particlePressureEnabled,
+    particleBuoyancyEnabled,
     heatmapVisible,
+    activeHeatmapNode,
     handleRunAnalysis,
     handleVisualizationTypeChange,
     handleColorSchemeChange,
@@ -44,15 +56,43 @@ export function HVACPanel() {
     setShowVectors,
     handleRenderModeChange,
     handleSlicePositionChange,
+    handleGinotPointCloudVisibilityChange,
+    handleGinotPointMetricChange,
+    handleGinotPointSizeChange,
+    handleGinotPointOpacityChange,
+    handleShowParticlesChange,
+    handleParticleDensityChange,
+    handleParticleSizeChange,
+    handleParticleTrailsChange,
+    handleParticleTrailLengthChange,
+    handleParticlePressureChange,
+    handleParticleBuoyancyChange,
     toggleHeatmap,
   } = useHVACAnalysis()
+
+  const thermalLegend = useMemo(() => {
+    const values = activeHeatmapNode?.data.temperatureGrid3D?.flat(2)
+      ?? activeHeatmapNode?.data.temperatureGrid.flat()
+      ?? []
+
+    if (values.length === 0) {
+      return null
+    }
+
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    return {
+      min: Number.isFinite(min) ? min : 18,
+      max: Number.isFinite(max) ? max : 28,
+    }
+  }, [activeHeatmapNode])
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="border-border/50 border-b px-4 py-3">
         <h2 className="text-sm font-semibold">HVAC Analysis</h2>
-        <p className="text-xs text-muted-foreground">Configure and run CFD simulation</p>
+        <p className="text-xs text-muted-foreground">Configure and run airflow analysis</p>
       </div>
 
       {/* Scrollable Content */}
@@ -77,20 +117,9 @@ export function HVACPanel() {
           </div>
         )}
 
-        {/* Comfort KPIs */}
-        {currentScenario?.results && (
-          <PanelSection title="Comfort KPIs">
-            <ComfortKPIDisplay
-              averageTemperature={currentScenario.results.averageTemperature}
-              comfortScore={currentScenario.results.comfortScore}
-              pmv={currentScenario.results.pmv}
-            />
-          </PanelSection>
-        )}
-
         {/* Visualization Controls */}
         {activeHeatmapId && (
-          <PanelSection title="Visualization">
+          <div className="px-4 py-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Heatmap</span>
               <Button
@@ -116,27 +145,56 @@ export function HVACPanel() {
               colorScheme={colorScheme}
               has3DData={has3DData}
               opacity={opacity}
+              showParticles={showParticles}
+              particleDensity={particleDensity}
+              particleSize={particleSize}
+              showParticleTrails={showParticleTrails}
+              particleTrailLength={particleTrailLength}
+              particlePressureEnabled={particlePressureEnabled}
+              particleBuoyancyEnabled={particleBuoyancyEnabled}
               renderMode={renderMode}
               showVectors={showVectors}
+              hasGinotPointCloud={hasGinotPointCloud}
+              showGinotPointCloud={showGinotPointCloud}
+              ginotPointMetric={ginotPointMetric}
+              ginotPointSize={ginotPointSize}
+              ginotPointOpacity={ginotPointOpacity}
               slicePosition={slicePosition}
               visualizationType={visualizationType}
               onColorSchemeChange={handleColorSchemeChange}
+              onGinotPointCloudVisibilityChange={handleGinotPointCloudVisibilityChange}
+              onGinotPointMetricChange={handleGinotPointMetricChange}
+              onGinotPointSizeChange={handleGinotPointSizeChange}
+              onGinotPointOpacityChange={handleGinotPointOpacityChange}
               onOpacityChange={handleOpacityChange}
+              onShowParticlesChange={handleShowParticlesChange}
+              onParticleDensityChange={handleParticleDensityChange}
+              onParticleSizeChange={handleParticleSizeChange}
+              onShowParticleTrailsChange={handleParticleTrailsChange}
+              onParticleTrailLengthChange={handleParticleTrailLengthChange}
+              onParticlePressureChange={handleParticlePressureChange}
+              onParticleBuoyancyChange={handleParticleBuoyancyChange}
               onRenderModeChange={handleRenderModeChange}
               onShowVectorsChange={setShowVectors}
               onSlicePositionChange={handleSlicePositionChange}
               onVisualizationTypeChange={handleVisualizationTypeChange}
             />
-          </PanelSection>
+
+            {thermalLegend && (
+              <div className="mt-3">
+                <HeatmapLegend
+                  min={thermalLegend.min}
+                  max={thermalLegend.max}
+                  unit="°C"
+                  colorScheme={colorScheme}
+                  label="Particle Temperature"
+                  note="Particles leave supply diffusers with supply-air temperature, mix through the room, and disappear into return collectors."
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Footer - Export */}
-      {currentScenario?.results && (
-        <div className="border-border/50 border-t p-3">
-          <ExportReportButton projectName="HVAC Analysis" />
-        </div>
-      )}
     </div>
   )
 }

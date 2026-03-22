@@ -4,10 +4,10 @@ import type { ParticleSystemNode } from '@pascal-app/core'
 import { useRegistry } from '@pascal-app/core'
 import { useRef, useMemo } from 'react'
 import type * as THREE from 'three'
-import { BufferGeometry, BufferAttribute, ShaderMaterial, AdditiveBlending } from 'three'
+import { BufferGeometry, BufferAttribute } from 'three'
 import { useNodeEvents } from '../../../hooks/use-node-events'
 import { createParticleBuffers } from '../../../lib/particle-system'
-import { particleVertexShader, particleFragmentShader } from '../../../lib/particle-shaders'
+import { createParticleNodeMaterial } from '../../../lib/particle-shaders'
 
 interface ParticlesBasicProps {
   node: ParticleSystemNode
@@ -34,33 +34,32 @@ export const ParticlesBasic = ({ node }: ParticlesBasicProps) => {
             position: [0, 2, 0] as [number, number, number],
             direction: [0, -1, 0] as [number, number, number],
             velocity: 0.5,
-            temperature: 293,
+            temperature: 22,
             spreadAngle: Math.PI / 6,
             emissionRate: 100,
+            radius: 0.18,
           },
         ]
 
-    const buffers = createParticleBuffers(node.particleCount, dummyEmitters)
+    const buffers = createParticleBuffers(
+      node.particleCount,
+      dummyEmitters,
+      node.particleLifetime,
+      true,
+    )
 
     const geom = new BufferGeometry()
     geom.setAttribute('position', new BufferAttribute(buffers.geometry.position, 3))
     geom.setAttribute('color', new BufferAttribute(buffers.geometry.color, 3))
     geom.setAttribute('lifetime', new BufferAttribute(buffers.geometry.lifetime, 1))
 
-    const mat = new ShaderMaterial({
-      vertexShader: particleVertexShader,
-      fragmentShader: particleFragmentShader,
-      uniforms: {
-        pointSize: { value: node.particleSize * 100 },
-        time: { value: 0 },
-      },
-      transparent: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-    })
+    const mat = createParticleNodeMaterial(
+      node.particleSize * 100,
+      node.particleOpacity ?? 0.8,
+    )
 
     return { geometry: geom, material: mat }
-  }, [node.particleCount, node.emitters, node.particleSize])
+  }, [node.emitters, node.particleCount, node.particleLifetime, node.particleOpacity, node.particleSize])
 
   return (
     <group ref={ref} {...handlers}>

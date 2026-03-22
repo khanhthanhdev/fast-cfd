@@ -1,5 +1,8 @@
 import type { RoomGeometrySnapshot } from './room-geometry-snapshot'
 
+export const DEFAULT_GINOT_BOUNDARY_POINT_COUNT = 5000
+export const DEFAULT_GINOT_INTERIOR_POINT_COUNT = 5000
+
 /**
  * Sample points from a triangle surface
  * Uses uniform random sampling across the triangle area
@@ -26,7 +29,7 @@ function sampleTriangle(
     const point = [
       u * v0[0]! + v * v1[0]! + w * v2[0]!,
       u * v0[1]! + v * v1[1]! + w * v2[1]!,
-      u * v0[2]! + v * v2[2]! + w * v2[2]!,
+      u * v0[2]! + v * v1[2]! + w * v2[2]!,
     ]
 
     points.push(point)
@@ -57,16 +60,16 @@ function triangleArea(v0: number[], v1: number[], v2: number[]): number {
 /**
  * Sample points from boundary surfaces
  *
- * Matches Python reference: samples 100,000 points from room boundary mesh
+ * Samples points from the room boundary mesh
  * Points are distributed proportionally to triangle area for uniform coverage
  *
  * @param geometry - Room geometry snapshot
- * @param targetCount - Target number of boundary points (default: 100,000)
+ * @param targetCount - Target number of boundary points (default: 5,000)
  * @returns Array of [x, y, z] points
  */
 export function sampleBoundary(
   geometry: RoomGeometrySnapshot,
-  targetCount: number = 100000
+  targetCount: number = DEFAULT_GINOT_BOUNDARY_POINT_COUNT
 ): number[][] {
   const { vertices, faces } = geometry
 
@@ -229,18 +232,18 @@ function rayIntersectsTriangle(
 /**
  * Sample points from interior volume
  *
- * Matches Python reference: samples 50,000 points from room interior
+ * Samples points from the room interior volume
  * Uses rejection sampling: generate points in bounding box, filter by mesh.contains()
  * Resamples until target count is reached
  *
  * @param geometry - Room geometry snapshot
- * @param targetCount - Target number of interior points (default: 50,000)
+ * @param targetCount - Target number of interior points (default: 5,000)
  * @param maxAttempts - Maximum sampling attempts before giving up
  * @returns Array of [x, y, z] points
  */
 export function sampleInterior(
   geometry: RoomGeometrySnapshot,
-  targetCount: number = 50000,
+  targetCount: number = DEFAULT_GINOT_INTERIOR_POINT_COUNT,
   maxAttempts: number = 10
 ): number[][] {
   const { vertices, faces, bounds } = geometry
@@ -316,8 +319,8 @@ export function generateAllSamples(
     actualInteriorCount: number
   }
 } {
-  const boundaryCount = options?.boundaryCount ?? 100000
-  const interiorCount = options?.interiorCount ?? 50000
+  const boundaryCount = options?.boundaryCount ?? DEFAULT_GINOT_BOUNDARY_POINT_COUNT
+  const interiorCount = options?.interiorCount ?? DEFAULT_GINOT_INTERIOR_POINT_COUNT
 
   const boundaryPoints = sampleBoundary(geometry, boundaryCount)
   const interiorPoints = sampleInterior(geometry, interiorCount)

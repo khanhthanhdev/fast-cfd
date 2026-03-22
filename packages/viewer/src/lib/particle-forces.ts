@@ -3,7 +3,7 @@ import type { PressureField3D } from '@pascal-app/core'
 
 // Physical constants for air at 20°C
 const GRAVITY = 9.81 // m/s²
-const THERMAL_EXPANSION = 1 / 293 // ~1/T_ref for air at 20°C
+const THERMAL_EXPANSION = 1 / 295.15
 const AIR_DENSITY = 1.204 // kg/m³ at 20°C
 
 // Reusable temp vectors for sampling (avoid allocations in hot paths)
@@ -89,7 +89,7 @@ export function samplePressureGradientInto(
  */
 export function applyBuoyancyForce(
   temperature: number,
-  referenceTemp: number = 293 // 20°C
+  referenceTemp: number = 22
 ): Vector3 {
   // Warm air rises, cool air sinks
   const deltaT = temperature - referenceTemp
@@ -105,7 +105,7 @@ export function applyBuoyancyForce(
 export function applyBuoyancyForceInto(
   out: Vector3,
   temperature: number,
-  referenceTemp: number = 293
+  referenceTemp: number = 22
 ): void {
   const deltaT = temperature - referenceTemp
   const buoyancy = GRAVITY * THERMAL_EXPANSION * deltaT
@@ -130,7 +130,7 @@ export function calculateTotalForce(
   const {
     enablePressureGradient = true,
     enableBuoyancy = true,
-    referenceTemp = 293,
+    referenceTemp = 22,
   } = options
 
   let force = new Vector3(0, 0, 0)
@@ -161,7 +161,7 @@ export function calculateTotalForceInto(
   const {
     enablePressureGradient = true,
     enableBuoyancy = true,
-    referenceTemp = 293,
+    referenceTemp = 22,
   } = options
 
   out.set(0, 0, 0)

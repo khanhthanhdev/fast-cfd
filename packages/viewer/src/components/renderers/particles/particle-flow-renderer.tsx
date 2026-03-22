@@ -1,33 +1,44 @@
 'use client'
 
-import type { ParticleSystemNode, VelocityField3D, TemperatureField3D } from '@pascal-app/core'
-import { useRegistry } from '@pascal-app/core'
-import { useFrame, useThree } from '@react-three/fiber'
-import { useMemo, useRef, useEffect } from 'react'
+import type {
+  ParticleSystemNodeType,
+  TemperatureField3D,
+  VelocityField3D,
+} from '@pascal-app/core'
+import { useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import type * as THREE from 'three'
-import { ShaderMaterial, BufferGeometry, BufferAttribute, AdditiveBlending } from 'three'
-import { useNodeEvents } from '../../../hooks/use-node-events'
 import {
-  createParticleBuffers,
-  updateParticlePositions,
-  updateParticleColors,
-} from '../../../lib/particle-system'
-import { particleVertexShader, particleFragmentShader } from '../../../lib/particle-shaders'
+  BufferAttribute,
+  BufferGeometry,
+  NormalBlending,
+} from 'three'
 import { colorMaps } from '../../../lib/color-maps'
-import { createTrailBuffers } from '../../../lib/particle-trails'
-import { TrailRenderer } from './trail-renderer'
 import {
+  createActiveHeatCellSet,
   depositHeatToGrid,
   removeHeatAtDiffusers,
-  temperatureFieldTo3DArray,
   temperatureFieldFrom3DArray,
+  temperatureFieldTo3DArray,
 } from '../../../lib/heat-deposition'
+import { createParticleNodeMaterial } from '../../../lib/particle-shaders'
+import {
+  createParticleBuffers,
+  createParticleEmitterRuntime,
+  emitParticlesFromEmitters,
+  updateParticleColors,
+  updateParticlePositions,
+} from '../../../lib/particle-system'
+import { createTrailBuffers } from '../../../lib/particle-trails'
+import { TrailRenderer } from './trail-renderer'
 
 interface ParticleFlowRendererProps {
-  node: ParticleSystemNode
+  node: ParticleSystemNodeType
   velocityField?: VelocityField3D
   temperatureField?: TemperatureField3D
   roomBounds: { min: [number, number, number]; max: [number, number, number] }
+  sharedHeatGridRef?: MutableRefObject<number[][][] | null>
+  sharedActiveHeatCellIndicesRef?: MutableRefObject<Set<number> | null>
 }
 
 export const ParticleFlowRenderer = ({
@@ -35,67 +46,64 @@ export const ParticleFlowRenderer = ({
   velocityField,
   temperatureField,
   roomBounds,
+  sharedHeatGridRef,
+  sharedActiveHeatCellIndicesRef,
 }: ParticleFlowRendererProps) => {
-  const ref = useRef<THREE.Group>(null!)
-  const particlesRef = useRef<THREE.Points>(null!)
-  const { gl } = useThree()
+  const pointsRef = useRef<THREE.Points>(null!)
+  const localHeatGridRef = useRef<number[][][] | null>(null)
+  const localActiveHeatCellIndicesRef = useRef<Set<number> | null>(null)
+  const emitters = node.emitters ?? []
+  const activeVelocityField = velocityField ?? node.velocityField
+  const activeTemperatureField = temperatureField ?? node.temperatureField
 
-  useRegistry(node.id, 'particle-system' as const, ref)
-  const handlers = useNodeEvents(node, 'particle-system' as const)
+  const particleBuffers = useMemo(
+    () => createParticleBuffers(node.particleCount, emitters, node.particleLifetime, true),
+    [emitters, node.particleCount, node.particleLifetime],
+  )
 
-  // Initialize particle buffers
-  const particleBuffers = useMemo(() => {
-    if (!node.emitters || node.emitters.length === 0) {
-      // Create dummy emitter for initialization
-      const dummyEmitters = [
-        {
-          id: 'dummy',
-          position: [0, 2, 0] as [number, number, number],
-          direction: [0, -1, 0] as [number, number, number],
-          velocity: 0.5,
-          temperature: 293,
-          spreadAngle: Math.PI / 6,
-          emissionRate: 100,
-        },
-      ]
-      return createParticleBuffers(node.particleCount, dummyEmitters)
-    }
-    return createParticleBuffers(node.particleCount, node.emitters)
-  }, [node.particleCount, node.emitters])
+  const emitterRuntime = useMemo(
+    () => createParticleEmitterRuntime(node.particleCount, emitters, node.particleLifetime),
+    [emitters, node.particleCount, node.particleLifetime],
+  )
 
-  // Initialize trail buffers
   const trailBuffers = useMemo(
     () => createTrailBuffers(node.particleCount, node.trailLength),
     [node.particleCount, node.trailLength],
   )
 
-  // Convert temperature field to 3D array for heat deposition
-  const heatGridRef = useRef<number[][][] | null>(null)
-  if (temperatureField && !heatGridRef.current) {
-    heatGridRef.current = temperatureFieldTo3DArray(temperatureField)
-  }
+  useEffect(() => {
+    if (!activeTemperatureField) {
+      localHeatGridRef.current = null
+      localActiveHeatCellIndicesRef.current = null
+      return
+    }
 
-  // Create geometry and material
+    const nextHeatGrid = temperatureFieldTo3DArray(activeTemperatureField)
+    localHeatGridRef.current = nextHeatGrid
+    localActiveHeatCellIndicesRef.current = createActiveHeatCellSet(
+      nextHeatGrid,
+      activeTemperatureField.gridResolution,
+      node.ambientTemperature,
+    )
+  }, [activeTemperatureField, node.ambientTemperature])
+
   const { geometry, material } = useMemo(() => {
-    const geom = new BufferGeometry()
-    geom.setAttribute('position', new BufferAttribute(particleBuffers.geometry.position, 3))
-    geom.setAttribute('color', new BufferAttribute(particleBuffers.geometry.color, 3))
-    geom.setAttribute('lifetime', new BufferAttribute(particleBuffers.geometry.lifetime, 1))
+    const nextGeometry = new BufferGeometry()
+    nextGeometry.setAttribute('position', new BufferAttribute(particleBuffers.geometry.position, 3))
+    nextGeometry.setAttribute('color', new BufferAttribute(particleBuffers.geometry.color, 3))
+    nextGeometry.setAttribute('lifetime', new BufferAttribute(particleBuffers.geometry.lifetime, 1))
 
-    const mat = new ShaderMaterial({
-      vertexShader: particleVertexShader,
-      fragmentShader: particleFragmentShader,
-      uniforms: {
-        pointSize: { value: node.particleSize * 100 },
-        time: { value: 0 },
-      },
-      transparent: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-    })
+    const nextMaterial = createParticleNodeMaterial(
+      node.particleSize * 120,
+      node.particleOpacity,
+    )
+    nextMaterial.blending = NormalBlending
 
-    return { geometry: geom, material: mat }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return {
+      geometry: nextGeometry,
+      material: nextMaterial,
+    }
+  }, [node.particleOpacity, node.particleSize, particleBuffers.geometry.color, particleBuffers.geometry.lifetime, particleBuffers.geometry.position])
 
   useEffect(() => {
     return () => {
@@ -104,126 +112,135 @@ export const ParticleFlowRenderer = ({
     }
   }, [geometry, material])
 
-  // Update loop
-  useFrame((_, delta) => {
-    if (!particlesRef.current || !node.enabled) return
-
-    const cappedDelta = Math.min(delta, 0.1) // Prevent large jumps
-
-    if (velocityField) {
-      updateParticlePositions(
-        particleBuffers.data,
-        velocityField,
-        node.attractors,
-        node.emitters,
-        {
-          min: roomBounds.min,
-          max: roomBounds.max,
-        },
-        cappedDelta,
-        temperatureField,
-        node.pressureField,
-        { pressure: true, buoyancy: true },
-      )
+  useEffect(() => {
+    if (material.uniforms.pointSize) {
+      material.uniforms.pointSize.value = node.particleSize * 120
     }
 
-    // Update colors based on temperature
-    if (temperatureField && node.colorByTemperature) {
-      const colorMapFn = colorMaps[node.colorScheme] || colorMaps.jet
+    if (material.uniforms.opacity) {
+      material.uniforms.opacity.value = node.particleOpacity
+    }
+  }, [material, node.particleOpacity, node.particleSize])
+
+  useFrame((_, delta) => {
+    if (!pointsRef.current || !node.enabled || emitters.length === 0) return
+
+    const cappedDelta = Math.min(delta, 0.08)
+
+    emitParticlesFromEmitters(
+      particleBuffers.data,
+      emitters,
+      emitterRuntime,
+      cappedDelta,
+      node.particleLifetime,
+    )
+
+    updateParticlePositions(
+      particleBuffers.data,
+      activeVelocityField,
+      node.attractors,
+      emitters,
+      roomBounds,
+      cappedDelta,
+      activeTemperatureField,
+      node.pressureField,
+      {
+        pressure: node.enablePressure,
+        buoyancy: node.enableBuoyancy,
+        sink: node.enableSink,
+        particleLifetime: node.particleLifetime,
+        ambientTemperature: node.ambientTemperature,
+        heatExchangeRate: node.heatExchangeRate,
+        pressureStrength: node.pressureStrength,
+        buoyancyStrength: node.buoyancyStrength,
+        sinkStrength: node.sinkStrength,
+      },
+    )
+
+    if (node.colorByTemperature) {
+      const colorMapFn = colorMaps[node.colorScheme] ?? colorMaps.jet
       updateParticleColors(
         particleBuffers.data,
-        temperatureField,
+        activeTemperatureField,
         node.colorScheme,
         colorMapFn!,
+        {
+          min: node.temperatureRange[0],
+          max: node.temperatureRange[1],
+        },
       )
     }
 
-    // Heat deposition from particles to grid
-    if (temperatureField && heatGridRef.current && velocityField) {
-      const heatGrid = heatGridRef.current
-      const gridResolution: [number, number, number] = temperatureField.gridResolution
+    const heatGrid = sharedHeatGridRef?.current ?? localHeatGridRef.current
 
-      // Deposit heat from particles
+    if (activeTemperatureField && heatGrid) {
+      let activeHeatCellIndices =
+        sharedActiveHeatCellIndicesRef?.current ?? localActiveHeatCellIndicesRef.current
+
+      if (!activeHeatCellIndices) {
+        activeHeatCellIndices = createActiveHeatCellSet(
+          heatGrid,
+          activeTemperatureField.gridResolution,
+          node.ambientTemperature,
+        )
+
+        if (sharedActiveHeatCellIndicesRef) {
+          sharedActiveHeatCellIndicesRef.current = activeHeatCellIndices
+        } else {
+          localActiveHeatCellIndicesRef.current = activeHeatCellIndices
+        }
+      }
+
       depositHeatToGrid({
         particleData: particleBuffers.data,
         temperatureGrid3D: heatGrid,
-        gridResolution,
-        bounds: {
-          min: roomBounds.min,
-          max: roomBounds.max,
-        },
+        gridResolution: activeTemperatureField.gridResolution,
+        bounds: roomBounds,
         depositionRate: node.heatDepositionRate,
         decayRate: node.heatDecayRate,
         ambientTemp: node.ambientTemperature,
         deltaTime: cappedDelta,
+        activeCellIndices: activeHeatCellIndices,
       })
 
-      // Remove heat at return/exhaust diffusers
-      if (node.attractors.some((a) => a.heatRemovalRate > 0)) {
+      if (node.attractors.some((attractor) => (attractor.heatRemovalRate ?? 0) > 0)) {
         removeHeatAtDiffusers({
           temperatureGrid3D: heatGrid,
-          gridResolution,
-          bounds: {
-            min: roomBounds.min,
-            max: roomBounds.max,
-          },
+          gridResolution: activeTemperatureField.gridResolution,
+          bounds: roomBounds,
           attractors: node.attractors,
           ambientTemperature: node.ambientTemperature,
           deltaTime: cappedDelta,
+          activeCellIndices: activeHeatCellIndices,
         })
       }
 
-      // Sync back to flat temperature field
-      temperatureFieldFrom3DArray(heatGrid, temperatureField)
+      temperatureFieldFrom3DArray(heatGrid, activeTemperatureField)
     }
 
-    // Update geometry attributes
-    const positionAttr = geometry.attributes.position as THREE.BufferAttribute
-    const colorAttr = geometry.attributes.color as THREE.BufferAttribute
-    const lifetimeAttr = geometry.attributes.lifetime as THREE.BufferAttribute
-
-    positionAttr.needsUpdate = true
-    colorAttr.needsUpdate = true
-    lifetimeAttr.needsUpdate = true
-
-    // Update time uniform
-    if (material.uniforms.time) {
-      material.uniforms.time.value += cappedDelta
-    }
+    ;(geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
+    ;(geometry.attributes.color as THREE.BufferAttribute).needsUpdate = true
+    ;(geometry.attributes.lifetime as THREE.BufferAttribute).needsUpdate = true
   })
 
-  // Update material color scheme when it changes
-  useEffect(() => {
-    if (!material || !temperatureField || !node.colorByTemperature) return
-
-    // Trigger color update in next frame
-    const positionAttr = geometry.attributes.position as THREE.BufferAttribute
-    positionAttr.needsUpdate = true
-  }, [node.colorScheme, node.colorByTemperature, material, temperatureField, geometry])
-
-  // Handle resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (material) {
-        // Adjust point size based on camera distance could go here
-      }
-    }
-
-    gl.domElement.addEventListener('resize', handleResize)
-    return () => gl.domElement.removeEventListener('resize', handleResize)
-  }, [gl, material])
+  if (!node.enabled || emitters.length === 0) {
+    return null
+  }
 
   return (
-    <group ref={ref} {...handlers}>
+    <group>
       {node.showTrails && (
         <TrailRenderer
           trailBuffers={trailBuffers}
           positions={particleBuffers.data.positions}
+          lifetimes={particleBuffers.data.lifetimes}
+          respawnCounts={particleBuffers.data.respawnCounts}
           colors={particleBuffers.data.colors}
+          fadeRate={node.trailFade}
           enabled={node.enabled}
         />
       )}
-      <points ref={particlesRef} geometry={geometry} material={material} />
+      <points ref={pointsRef} geometry={geometry} material={material} frustumCulled={false} />
     </group>
   )
 }

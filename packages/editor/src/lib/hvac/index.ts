@@ -1,8 +1,34 @@
 export { buildFeatureVector, extractRoomGeometry } from './feature-vector-builder'
-export { callAIInference, callGinotInference } from './ai-inference-client'
+export { callAIInference, callGinotInference, callGinotMeshInference } from './ai-inference-client'
 export type { RoomGeometry } from './feature-vector-builder'
 export type { AIInferenceRequest, AIInferenceResponse } from './ai-inference-client'
-export type { GinotInferenceRequest, GinotInferenceResponse } from './ai-inference-client'
+export type {
+  DiffuserInput,
+  GinotInferenceRequest,
+  GinotInferenceResponse,
+  GinotMeshClientOptions,
+  GinotMeshRequest,
+  GinotMeshResponse,
+  MeshInferenceContext,
+  MeshInferenceOptions,
+  MeshInferenceQuality,
+} from './ai-inference-client'
+export {
+  buildDiffuserInput,
+  getValidDiffusersForInference,
+  validateDiffuserSet,
+} from './diffuser-input-builder'
+export {
+  createGinotMeshValidationError,
+  formatGinotMeshInferenceError,
+  GinotMeshInferenceError,
+  isGinotMeshInferenceAbort,
+  isGinotMeshInferenceError,
+} from './mesh-inference-errors'
+export {
+  MESH_ANALYSIS_SUPERSEDED_REASON,
+  MeshAnalysisRunCoordinator,
+} from './mesh-analysis-run-coordinator'
 export {
   getPMVLabel,
   calculatePolygonArea,
@@ -48,3 +74,22 @@ export {
   TEST_ROOMS,
   type TestRoomConfig,
 } from './mock-room-generator'
+export {
+  buildParticleSystemNodeConfig,
+  createAttractorsFromDiffusers,
+  createEmittersFromDiffusers,
+  generateMockCFDData,
+  generateMockPressureField,
+  generateMockTemperatureField,
+  generateMockVelocityField,
+  type BuildParticleSystemConfigOptions,
+  type MockCFDOptions,
+  type ParticleSystemData,
+} from './mock-cfd-generator'
+export {
+  exportSceneToStlBlob,
+  buildExportScene,
+  estimateFaceCount,
+  type ExportScope,
+} from './scene-stl-export'
+export type { Bounds3D, Vector3Like, VelocityDirectionCell } from './cfd-types'

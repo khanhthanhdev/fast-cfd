@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { BufferAttribute, type LineSegments } from 'three'
 import type { TrailBuffers } from '../../../lib/particle-trails'
 import {
-  buildTrailGeometry,
   createTrailMesh,
+  fillTrailGeometry,
   updateTrails,
 } from '../../../lib/particle-trails'
 
@@ -14,6 +14,10 @@ interface TrailRendererProps {
   trailBuffers: TrailBuffers
   /** Live particle positions buffer (shared with particle system) */
   positions: Float32Array
+  /** Live particle lifetime buffer (used to hide/reset inactive particle trails) */
+  lifetimes: Float32Array
+  /** Monotonic per-particle respawn counter used to clear teleported trails */
+  respawnCounts: Uint32Array
   /** Live particle colors buffer (shared with particle system) */
   colors: Float32Array
   /** Fade rate (higher = trails disappear faster) */
@@ -24,6 +28,8 @@ interface TrailRendererProps {
 export const TrailRenderer = ({
   trailBuffers,
   positions,
+  lifetimes,
+  respawnCounts,
   colors,
   fadeRate = 2.0,
   enabled = true,
@@ -59,26 +65,21 @@ export const TrailRenderer = ({
     const cappedDelta = Math.min(delta, 0.1)
 
     // Record current particle positions into trail history
-    updateTrails(trailBuffers, positions, cappedDelta, fadeRate)
+    updateTrails(trailBuffers, positions, lifetimes, respawnCounts, cappedDelta, fadeRate)
 
-    // Rebuild line-segment geometry from history
-    const result = buildTrailGeometry(trailBuffers, colors)
+    const count = fillTrailGeometry(trailBuffers, colors, posBuffer, colBuffer)
 
-    if (result.count === 0) {
+    if (count === 0) {
       geometry.setDrawRange(0, 0)
       return
     }
-
-    // Copy results into pre-allocated buffers
-    posBuffer.set(result.positions)
-    colBuffer.set(result.colors)
 
     const posAttr = geometry.getAttribute('position') as BufferAttribute
     const colAttr = geometry.getAttribute('trailColor') as BufferAttribute
     posAttr.needsUpdate = true
     colAttr.needsUpdate = true
 
-    geometry.setDrawRange(0, result.count)
+    geometry.setDrawRange(0, count)
   })
 
   return <primitive ref={trailRef} object={mesh} />

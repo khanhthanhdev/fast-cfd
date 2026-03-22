@@ -9,6 +9,7 @@ export const ParticleEmitterSchema = z.object({
   temperature: z.number(),
   spreadAngle: z.number(),
   emissionRate: z.number(),
+  radius: z.number().default(0.18),
 })
 
 export const ParticleAttractorSchema = z.object({
@@ -16,9 +17,9 @@ export const ParticleAttractorSchema = z.object({
   position: z.tuple([z.number(), z.number(), z.number()]),
   strength: z.number(),
   radius: z.number(),
-  // Heat removal settings
   heatRemovalRate: z.number().default(0),
   removalRadius: z.number().default(0.5),
+  sinkStrength: z.number().default(1),
 })
 
 export const VelocityField3DSchema = z.object({
@@ -54,10 +55,11 @@ export const ParticleSystemNode = BaseNode.extend({
 
   levelId: z.string().nullable().default(null),
   zoneId: z.string().nullable().default(null),
+  heatmapNodeId: z.string().nullable().default(null),
 
   particleCount: z.number().default(2000),
   particleSize: z.number().default(0.03),
-  particleLifetime: z.number().default(300),
+  particleLifetime: z.number().default(8),
 
   emitters: z.array(ParticleEmitterSchema).default([]),
   attractors: z.array(ParticleAttractorSchema).default([]),
@@ -66,15 +68,26 @@ export const ParticleSystemNode = BaseNode.extend({
   temperatureField: TemperatureField3DSchema.optional(),
   pressureField: PressureField3DSchema.optional(),
 
-  // Heat deposition settings
   heatDepositionRate: z.number().default(0.1),
   heatDecayRate: z.number().default(0.02),
-  ambientTemperature: z.number().default(293),
+  ambientTemperature: z.number().default(22),
+  heatExchangeRate: z.number().default(1.2),
+  temperatureRange: z.tuple([z.number(), z.number()]).default([18, 28]),
 
   colorByTemperature: z.boolean().default(true),
   colorScheme: z.enum(['jet', 'viridis', 'plasma', 'coolwarm']).default('jet'),
   showTrails: z.boolean().default(false),
   trailLength: z.number().default(10),
+  trailFade: z.number().default(2),
+  particleOpacity: z.number().min(0).max(1).default(0.8),
+
+  enablePressure: z.boolean().default(false),
+  enableBuoyancy: z.boolean().default(false),
+  enableSink: z.boolean().default(true),
+  pressureStrength: z.number().default(0.25),
+  buoyancyStrength: z.number().default(0.2),
+  sinkStrength: z.number().default(0.8),
+  debugShowVectors: z.boolean().default(false),
 
   enabled: z.boolean().default(true),
 })

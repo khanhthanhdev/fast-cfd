@@ -37,13 +37,13 @@ export const HeatmapDataSchema = z.object({
   // Height offsets for each level (optional, for non-uniform sampling)
   heightOffsets: z.array(z.number()).optional(),
 
-  // 3D Temperature distribution [z][y][x]
+  // 3D Temperature distribution [verticalLevel][row][col] (i.e. [y][z][x])
   temperatureGrid3D: z.array(z.array(z.array(z.number()))).optional(),
 
-  // 3D Velocity magnitude [z][y][x]
+  // 3D Velocity magnitude [verticalLevel][row][col] (i.e. [y][z][x])
   velocityGrid3D: z.array(z.array(z.array(z.number()))).optional(),
 
-  // 3D Velocity direction [z][y][x] -> {x, y, z}
+  // 3D Velocity direction [verticalLevel][row][col] -> {x, y, z}
   velocityGrid3DDirection: z
     .array(
       z.array(
@@ -113,7 +113,7 @@ export const HeatmapNode = BaseNode.extend({
   dataMax: z.number().optional(),
 
   // Heat diffusion settings
-  heatDiffusionEnabled: z.boolean().default(true),
+  heatDiffusionEnabled: z.boolean().default(false),
   diffusionCoefficient: z.number().default(0.05),
   diffusionIterations: z.number().default(1),
 

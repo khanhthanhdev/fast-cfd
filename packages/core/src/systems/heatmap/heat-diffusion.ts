@@ -20,7 +20,7 @@ export function diffuseHeat(params: DiffusionParams): void {
     diffusionCoefficient,
     deltaTime,
     iterations = 1,
-    ambientTemperature = 293,
+    ambientTemperature = 22,
   } = params
 
   const [nx, ny, nz] = gridResolution

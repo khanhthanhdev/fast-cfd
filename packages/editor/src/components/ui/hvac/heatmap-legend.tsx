@@ -9,6 +9,7 @@ interface HeatmapLegendProps {
   unit: string
   colorScheme?: string
   label?: string
+  note?: string
 }
 
 /**
@@ -21,6 +22,7 @@ export const HeatmapLegend = ({
   unit,
   colorScheme = 'jet',
   label,
+  note,
 }: HeatmapLegendProps) => {
   const gradientStops = useMemo(() => {
     const mapFn = (colorMaps[colorScheme] ?? colorMaps.jet)!
@@ -69,6 +71,12 @@ export const HeatmapLegend = ({
           {unit}
         </span>
       </div>
+
+      {note && (
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+          {note}
+        </p>
+      )}
     </div>
   )
 }

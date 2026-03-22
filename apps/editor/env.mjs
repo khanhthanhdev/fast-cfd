@@ -18,6 +18,9 @@ export const env = createEnv({
     POSTGRES_URL: z.string().min(1),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+    // HVAC backend proxy
+    HVAC_MESH_INFERENCE_URL: z.string().url().optional(),
+
     // Auth
     BETTER_AUTH_SECRET: z.string().min(1),
     GOOGLE_CLIENT_ID: z.string().optional(),
@@ -42,6 +45,7 @@ export const env = createEnv({
     // Server
     POSTGRES_URL: process.env.POSTGRES_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    HVAC_MESH_INFERENCE_URL: process.env.HVAC_MESH_INFERENCE_URL,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,

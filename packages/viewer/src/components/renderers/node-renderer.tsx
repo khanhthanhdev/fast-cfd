@@ -20,8 +20,14 @@ import { Heatmap3DRenderer } from './heatmap/heatmap-3d-renderer'
 export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
   const node = useScene((state) => state.nodes[nodeId])
   const showVectors = useViewer((state) => state.showHeatmapVectors)
+  const showHeatmap = useViewer((state) => state.showHeatmap)
+  const showHeatParticles = useViewer((state) => state.showHeatParticles)
+  const showGinotPointCloud = useViewer((state) => state.showGinotPointCloud)
 
   if (!node) return null
+
+  const shouldRenderHeatmapNode =
+    showHeatmap || showVectors || showHeatParticles || showGinotPointCloud
 
   return (
     <>
@@ -38,7 +44,9 @@ export const NodeRenderer = ({ nodeId }: { nodeId: AnyNode['id'] }) => {
       {node.type === 'roof' && <RoofRenderer node={node} />}
       {node.type === 'scan' && <ScanRenderer node={node} />}
       {node.type === 'guide' && <GuideRenderer node={node} />}
-      {node.type === 'heatmap' && <Heatmap3DRenderer node={node} showVectors={showVectors} />}
+      {node.type === 'heatmap' && shouldRenderHeatmapNode && (
+        <Heatmap3DRenderer node={node} showVectors={showVectors} />
+      )}
     </>
   )
 }
